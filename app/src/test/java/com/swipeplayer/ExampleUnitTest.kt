@@ -1,4 +1,4 @@
-package com.example.swipeplayer
+package com.swipeplayer
 
 import org.junit.Test
 

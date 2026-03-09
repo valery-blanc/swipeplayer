@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.swipeplayer"
+    namespace = "com.swipeplayer"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.swipeplayer"
+        applicationId = "com.swipeplayer"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

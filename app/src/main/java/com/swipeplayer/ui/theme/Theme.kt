@@ -1,4 +1,4 @@
-package com.example.swipeplayer.ui.theme
+package com.swipeplayer.ui.theme
 
 import android.app.Activity
 import android.os.Build

@@ -17,7 +17,7 @@ Rien d'autre ne peut commencer sans M0.
 
 ### TASK-001 — Migration du package `com.example.swipeplayer` → `com.swipeplayer`
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : aucune
 - **Fichiers à modifier** :
   - `app/build.gradle.kts` → champ `applicationId`

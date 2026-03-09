@@ -1,4 +1,4 @@
-package com.example.swipeplayer
+package com.swipeplayer
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,7 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.swipeplayer.ui.theme.SwipePlayerTheme
+import com.swipeplayer.ui.theme.SwipePlayerTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
