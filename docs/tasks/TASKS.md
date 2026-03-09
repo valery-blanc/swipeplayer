@@ -99,7 +99,7 @@ Modèles de données, accès fichiers, historique de navigation.
 
 ### TASK-006 — Utilitaire `naturalCompare` (tri naturel)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-005
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/util/FileUtils.kt`
