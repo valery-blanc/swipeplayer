@@ -66,7 +66,7 @@ Rien d'autre ne peut commencer sans M0.
 
 ### TASK-004 — SwipePlayerApp + AppModule (squelette Hilt)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-002, TASK-003
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/SwipePlayerApp.kt` → `@HiltAndroidApp class SwipePlayerApp : Application()`
