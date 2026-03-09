@@ -51,7 +51,7 @@ Rien d'autre ne peut commencer sans M0.
 
 ### TASK-003 — Configuration AndroidManifest.xml
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-001
 - **Fichiers à modifier** :
   - `app/src/main/AndroidManifest.xml`
