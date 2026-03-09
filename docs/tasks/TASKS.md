@@ -31,7 +31,7 @@ Rien d'autre ne peut commencer sans M0.
 
 ### TASK-002 — Ajout des dépendances et configuration KSP
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-001
 - **Fichiers à modifier** :
   - `gradle/libs.versions.toml` → ajouter versions et aliases pour : `media3`, `hilt`, `ksp`, `documentfile`, `lifecycle-viewmodel-compose`, `compose-foundation`

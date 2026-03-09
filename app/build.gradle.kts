@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -50,6 +52,23 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.foundation)
+
+    // Media3 ExoPlayer (media3-ui non utilisé : UI gérée en Compose pur)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.session)
+
+    // ViewModel + Compose
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    // Hilt (KSP, pas kapt)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+
+    // SAF / content:// directory access
+    implementation(libs.androidx.documentfile)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
