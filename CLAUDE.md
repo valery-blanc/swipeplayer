@@ -66,25 +66,31 @@ Hardware-only decoding, no software fallback. Use `setEnableDecoderFallback(fals
 - State: `playlistVideos` (all files in dir), `history` (viewed videos), `currentIndex`
 - Swipe up: advance in history or pick a random unseen video; reset pool when all seen
 - Swipe down: go back in history (bounce visually if at start)
+- `peekNext()`: as soon as the current video starts playing, pre-select the next random video **without** advancing `currentIndex`. This enables ExoPlayer pre-loading before the user swipes. If user swipes down instead, `peekNext` is preserved for the next swipe-up.
+
+File listing sort must use **natural sort** (case-insensitive, numeric-aware): `video2.mp4` < `video10.mp4`. Standard `String.compareTo()` gives wrong order for numbered files.
 
 ### Gesture Zones (screen width)
 - Left 15%: vertical swipe = brightness control (`WindowManager.LayoutParams.screenBrightness`)
 - Right 15%: vertical swipe = volume control (`AudioManager.STREAM_MUSIC`)
 - Center 70%: vertical swipe = video navigation; tap = toggle controls; double-tap = ±10s seek; pinch = zoom
 
-All gestures must be handled in **a single `pointerInput` modifier** routed by the X position of the first pointer to avoid gesture conflicts. Swipe-to-navigate requires ≥80dp movement + minimum velocity.
+All gestures must be handled in **a single `pointerInput` modifier** routed by the X position of the first pointer to avoid gesture conflicts. Swipe-to-navigate requires ≥80dp movement + minimum velocity. An initially horizontal movement means seekbar interaction — cancel video-swipe detection. Swipe-to-navigate is disabled when zoom scale > 1x.
 
 ### Video Surface + Compose
 Use `SurfaceView` wrapped in `AndroidView` for the video surface only. All overlay UI (controls, gestures) must be pure Compose on top.
 
 ### Memory Management
-Maximum 2 simultaneous ExoPlayer instances: current (playing) + next (first frame decoded, paused). Release the previous immediately after a swipe. Call `player.setVideoSurfaceView(null)` before `player.release()`.
+Maximum 2 simultaneous ExoPlayer instances: current (playing) + next (`peekNext`, first frame decoded, paused). Release the previous immediately after a swipe. Call `player.clearVideoSurfaceView(surfaceView)` (or `player.setVideoSurface(null)`) before `player.release()` to prevent leaks.
 
 ### VerticalPager Setup
-Use `pageCount = { Int.MAX_VALUE }` with a large initial offset to allow bi-directional swiping. Map virtual page indices to the history/navigation algorithm in the ViewModel. Use `beyondBoundsPageCount = 1` to preload one adjacent page.
+Use **2 logical pages with silent reset** — not `Int.MAX_VALUE`. Pages: 0 = previous video, 1 = current video. After each completed swipe, call `pagerState.scrollToPage(1)` without animation and update the ViewModel. To block swipe-down at the start of history, intercept the scroll gesture and prevent navigation to page 0 when `currentIndex == 0`.
 
 ### Pinch-to-Zoom
-Apply scale via `graphicsLayer { scaleX = ...; scaleY = ... }` on the video surface only — not on the controls overlay.
+Apply scale via `graphicsLayer { scaleX = ...; scaleY = ... }` on the video surface only — not on the controls overlay. **When scale > 1x, disable the vertical swipe-to-navigate gesture.** The user must first pinch back to 1x (or double-tap to reset zoom) before video navigation is re-enabled.
+
+### MediaSession (mandatory)
+Implement `MediaSession` (`media3-session`) to expose playback controls in the Android system notification. Required since Android 12+ for foreground media apps; without it the app may be killed in the background by the OS.
 
 ### Controls Auto-hide
 Use `AnimatedVisibility` with `fadeIn`/`fadeOut` (200ms). Auto-hide after 4 seconds via `LaunchedEffect` with a cancellable coroutine timer.
@@ -106,10 +112,13 @@ Steps on intent receipt:
 ## Dependencies to Add
 
 The template `libs.versions.toml` only has basic Compose dependencies. Add to `app/build.gradle.kts`:
-- `androidx.media3:media3-exoplayer`, `media3-ui`, `media3-common`
+- `androidx.media3:media3-exoplayer`, `media3-common`, `media3-session` — **not** `media3-ui` (UI is pure Compose)
 - `androidx.compose.foundation:foundation` (for `VerticalPager`)
 - `androidx.lifecycle:lifecycle-viewmodel-compose`
-- `com.google.dagger:hilt-android` + `hilt-android-compiler` (kapt/ksp)
+- `com.google.dagger:hilt-android` + `ksp("hilt-android-compiler")` — use **KSP**, not kapt (kapt is deprecated for Kotlin 2.x)
+- `androidx.documentfile:documentfile` (for SAF / `content://` parent directory access)
+
+Add the KSP plugin to `build.gradle.kts` (root) and `app/build.gradle.kts`.
 
 ## UI Style
 - Always fullscreen immersive sticky mode (hide system bars)

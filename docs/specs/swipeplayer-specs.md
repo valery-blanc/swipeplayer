@@ -32,10 +32,10 @@ Un lecteur vidéo Android haute performance avec décodage matériel, qui permet
 ```kotlin
 // build.gradle.kts (app)
 dependencies {
-    // Media3 ExoPlayer
+    // Media3 ExoPlayer (media3-ui non utilisé : UI gérée en Compose pur)
     implementation("androidx.media3:media3-exoplayer:1.5.x")
-    implementation("androidx.media3:media3-ui:1.5.x")
     implementation("androidx.media3:media3-common:1.5.x")
+    implementation("androidx.media3:media3-session:1.5.x")  // MediaSession + contrôles système
 
     // Jetpack Compose
     implementation("androidx.compose.ui:ui:1.7.x")
@@ -46,9 +46,10 @@ dependencies {
     // Architecture
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.x")
     implementation("com.google.dagger:hilt-android:2.51.x")
+    ksp("com.google.dagger:hilt-android-compiler:2.51.x")   // KSP, pas kapt
 
-    // Gestion des gestes avancés
-    implementation("androidx.compose.foundation:foundation:1.7.x")
+    // Accès fichiers / SAF
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }
 ```
 
@@ -179,29 +180,50 @@ Swipe vers le bas (vidéo précédente) :
       Lire history[currentIndex]
   SINON :
       // Déjà au début, feedback visuel (rebond) — pas de changement
+
+Pré-sélection de la prochaine vidéo (peekNext) :
+  Dès que la vidéo courante commence à jouer, présélectionner la prochaine
+  vidéo aléatoire SANS avancer currentIndex. Cela permet le pré-chargement
+  ExoPlayer avant que l'utilisateur swipe.
+  peekNext = candidats.random()  // calculé comme "swipe up" mais sans commit
+  Si l'utilisateur swipe effectivement → peekNext devient la nouvelle vidéo
+  Si l'utilisateur swipe vers le bas → peekNext reste mémorisé pour le prochain swipe up
 ```
 
 ### Implémentation technique du swipe
 
-Utiliser `VerticalPager` de Jetpack Compose Foundation :
+Utiliser `VerticalPager` de Jetpack Compose Foundation avec **2 pages logiques et reset** :
 
 ```kotlin
+// Approche : 2 pages (0 = précédente/aucune, 1 = courante), reset silencieux après chaque transition
 val pagerState = rememberPagerState(
-    initialPage = LARGE_OFFSET, // Offset pour permettre le swipe dans les deux directions
-    pageCount = { Int.MAX_VALUE }
+    initialPage = 1,
+    pageCount = { 2 }
 )
 
 VerticalPager(
     state = pagerState,
-    beyondBoundsPageCount = 1, // Pré-charge 1 page adjacente pour fluidité
+    beyondBoundsPageCount = 1,
     modifier = Modifier.fillMaxSize()
 ) { page ->
     VideoPlayerPage(
-        video = viewModel.getVideoForPage(page),
+        video = if (page == 1) viewModel.currentVideo else viewModel.previousVideo,
         isCurrentPage = page == pagerState.currentPage
     )
 }
+
+// Après chaque swipe complété (currentPage change) :
+LaunchedEffect(pagerState.currentPage) {
+    // Mettre à jour le ViewModel (avancer/reculer dans l'historique)
+    // Puis remettre le pager sur la page 1 sans animation
+    pagerState.scrollToPage(1)
+}
 ```
+
+**Avantages de cette approche vs `Int.MAX_VALUE` :**
+- Contrôle total sur le rebond en début d'historique (bloquer le scroll vers page 0 si `currentIndex == 0`)
+- Pas de mapping complexe index virtuel → historique
+- Pré-sélection de la prochaine vidéo possible dès le début de la vidéo courante
 
 ### Zones de swipe
 
@@ -339,10 +361,11 @@ Quatre icônes alignées à gauche, espacées de 32dp :
 ### Priorité et désambiguïsation des gestes
 
 1. Le **pinch** (deux doigts) a la priorité absolue sur tout autre geste.
-2. Les gestes **swipe latéral** (bandes gauche/droite) sont détectés dès que le point de départ du toucher est dans la zone correspondante.
-3. Le **swipe vertical central** nécessite un déplacement minimum de 80dp et une vélocité minimum pour être déclenché (pour éviter les faux positifs pendant le scroll de la seekbar ou les taps).
-4. Le **double tap** est détecté avec un délai de 200ms après le premier tap. Si pas de second tap → tap simple.
-5. Les contrôles visibles consomment les taps (boutons play, seek, etc.) avant la détection du tap simple pour hide.
+2. **Quand le zoom est actif (scale > 1x)**, le swipe vertical pour changer de vidéo est **désactivé**. L'utilisateur doit d'abord dézoomer (pinch inverse ou double-tap pour reset) avant de pouvoir naviguer.
+3. Les gestes **swipe latéral** (bandes gauche/droite) sont détectés dès que le point de départ du toucher est dans la zone correspondante.
+4. Le **swipe vertical central** nécessite un déplacement minimum de 80dp et une vélocité minimum pour être déclenché (pour éviter les faux positifs pendant le scroll de la seekbar ou les taps). Un mouvement initialement horizontal → c'est la seekbar, annuler la détection de swipe vidéo.
+5. Le **double tap** est détecté avec un délai de 200ms après le premier tap. Si pas de second tap → tap simple.
+6. Les contrôles visibles consomment les taps (boutons play, seek, etc.) avant la détection du tap simple pour hide.
 
 ---
 
@@ -350,11 +373,11 @@ Quatre icônes alignées à gauche, espacées de 32dp :
 
 ### Pré-chargement des vidéos
 
-Pour garantir la fluidité du swipe, pré-initialiser un second ExoPlayer pour la vidéo adjacente :
+Pour garantir la fluidité du swipe, pré-initialiser un second ExoPlayer pour la vidéo suivante **présélectionnée** (voir algorithme `peekNext`) :
 
 ```
 Page actuelle (N) : ExoPlayer actif, en lecture
-Page N+1 (prochaine probable) : ExoPlayer prêt, première frame décodée, en pause
+Page N+1 (peekNext, présélectionnée dès le début de N) : ExoPlayer prêt, première frame décodée, en pause
 Page N-1 (précédente) : libéré de la mémoire
 ```
 
@@ -362,7 +385,7 @@ Page N-1 (précédente) : libéré de la mémoire
 
 - Maximum 2 instances ExoPlayer simultanées.
 - Libérer l'instance non adjacente immédiatement après le swipe.
-- Utiliser `player.setVideoSurfaceView(null)` avant release pour éviter les fuites.
+- Utiliser `player.clearVideoSurfaceView(surfaceView)` (ou `player.setVideoSurface(null)`) avant `player.release()` pour éviter les fuites.
 
 ### Gestion des interruptions
 
@@ -379,9 +402,9 @@ Page N-1 (précédente) : libéré de la mémoire
 
 Demander l'audio focus au démarrage. Réagir aux changements :
 - `AUDIOFOCUS_LOSS` → pause
-- `AUDIOFOCUS_LOSS_TRANSIENT` → pause, reprise au gain
+- `AUDIOFOCUS_LOSS_TRANSIENT` → pause, reprise à `AUDIOFOCUS_GAIN`
 - `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` → baisser le volume à 30%
-- `AUDIOFOCUS_GAIN` → reprise
+- `AUDIOFOCUS_GAIN` → reprise ET restauration du volume à 100% si on était en duck
 
 ---
 
@@ -518,14 +541,22 @@ app/
 
 1. **Ne PAS utiliser `AndroidView` pour le player vidéo dans Compose** si possible. Préférer `SurfaceView` wrappé dans `AndroidView` uniquement pour le rendu vidéo — le reste de l'UI doit être en Compose pur pour la fluidité des animations de swipe.
 
-2. **Le `VerticalPager` doit utiliser des clés stables** pour éviter les recompositions inutiles. Chaque page est identifiée par l'index dans l'historique.
+2. **Le `VerticalPager` utilise 2 pages logiques avec reset** (voir §5). Ne pas utiliser `Int.MAX_VALUE`. Après chaque transition, appeler `pagerState.scrollToPage(1)` sans animation pour remettre le pager en position centrale.
 
 3. **Le swipe et les gestes de luminosité/volume doivent être gérés dans un seul `pointerInput` modifier** avec une logique de routage basée sur la position X du premier pointeur. Cela évite les conflits de gestes.
 
-4. **Le pinch-to-zoom doit modifier un `graphicsLayer` avec `scaleX`/`scaleY`** sur la surface vidéo uniquement, pas sur l'overlay des contrôles.
+4. **Le pinch-to-zoom doit modifier un `graphicsLayer` avec `scaleX`/`scaleY`** sur la surface vidéo uniquement, pas sur l'overlay des contrôles. Quand scale > 1x, désactiver le swipe de navigation vidéo.
 
 5. **Pour le mode HW+** : si le décodeur matériel échoue, ne PAS fallback sur le logiciel. Afficher un message d'erreur clair.
 
 6. **Les contrôles doivent utiliser `AnimatedVisibility`** avec `fadeIn`/`fadeOut` pour les transitions, et un `LaunchedEffect` avec un timer de 4 secondes pour l'auto-hide.
 
-7. **Tester impérativement** avec des vidéos 4K HEVC, des fichiers MKV avec sous-titres multiples, et des vidéos verticales filmées au téléphone.
+7. **Le tri des fichiers vidéo doit être un "natural sort"** (insensible à la casse, numérique) : `video2.mp4` < `video10.mp4`. Implémenter via une regex qui tokenise les segments numériques et textuels. `String.compareTo()` standard ne suffit pas.
+
+8. **Implémenter `MediaSession`** (`media3-session`) pour exposer les contrôles de lecture dans la notification système Android. Obligatoire depuis Android 12+ pour les apps media de premier plan.
+
+9. **Le mode d'affichage "100%" (pixel perfect)** : si la vidéo dépasse les dimensions de l'écran, le contenu est coupé aux bords (overflow clip). Pas de scroll.
+
+10. **Pour les URI `content://`** : tenter de résoudre le répertoire parent via `DocumentFile.fromSingleUri()`. Si la liste résultante contient < 2 fichiers (ou si une exception est levée), basculer en mode "fichier unique" et désactiver le swipe.
+
+11. **Tester impérativement** avec des vidéos 4K HEVC, des fichiers MKV avec sous-titres multiples, et des vidéos verticales filmées au téléphone.
