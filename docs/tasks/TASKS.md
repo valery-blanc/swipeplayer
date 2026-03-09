@@ -84,7 +84,7 @@ Modèles de données, accès fichiers, historique de navigation.
 
 ### TASK-005 — `VideoFile` data class
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-001
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/data/VideoFile.kt`
