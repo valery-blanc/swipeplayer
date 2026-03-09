@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+## Workflow Rules
+
+### Task Tracking
+For any task that involves more than 3 files or more than 3 steps:
+1. BEFORE starting, create/update a checklist in `docs/tasks/TASKS.md`
+2. Mark each sub-step with `[ ]` (todo), `[x]` (done), or `[!]` (blocked)
+3. Update the checklist AFTER completing each sub-step
+4. If the session is interrupted, the checklist is the source of truth 
+   for resuming work
+
+### Resuming Work
+When starting a new session or after /clear, ALWAYS:
+1. Read `docs/tasks/TASKS.md` to check current progress
+2. Identify the first unchecked item
+3. Resume from there — do NOT restart completed work
+
+
 ## Build & Run Commands
 
 ```bash
