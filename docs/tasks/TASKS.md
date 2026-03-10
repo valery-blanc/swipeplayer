@@ -228,7 +228,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-014 — `PlayerViewModel`
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-007, TASK-008, TASK-010, TASK-011, TASK-012, TASK-013
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/PlayerViewModel.kt`
