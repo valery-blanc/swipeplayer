@@ -1,23 +1,21 @@
 package com.swipeplayer.ui.screen
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.material3.Text
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.swipeplayer.ui.components.ControlsOverlay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -43,6 +41,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -87,8 +86,14 @@ fun PlayerScreen(
                     }
                 },
                 onTap = viewModel::onToggleControls,
-                onDoubleTapLeft = { viewModel.onSeekRelative(-10_000L) },
-                onDoubleTapRight = { viewModel.onSeekRelative(10_000L) },
+                onDoubleTapLeft = {
+                    viewModel.onSeekRelative(-10_000L)
+                    viewModel.onDoubleTap(com.swipeplayer.ui.TapSide.LEFT)
+                },
+                onDoubleTapRight = {
+                    viewModel.onSeekRelative(10_000L)
+                    viewModel.onDoubleTap(com.swipeplayer.ui.TapSide.RIGHT)
+                },
                 onZoom = viewModel::onZoomChange,
                 onBrightnessDelta = viewModel::onBrightnessDelta,
                 onVolumeDelta = viewModel::onVolumeDelta,
@@ -118,34 +123,17 @@ fun PlayerScreen(
             }
         }
 
-        // Controls overlay — animated in/out.
-        // Full implementation comes in TASK-029; this shows a minimal
-        // status indicator in the meantime.
+        // Controls overlay — animated in/out (200ms fade per spec)
         AnimatedVisibility(
             visible = uiState.controlsVisible,
             enter = fadeIn(tween(PlayerConfig.CONTROLS_FADE_DURATION_MS)),
             exit = fadeOut(tween(PlayerConfig.CONTROLS_FADE_DURATION_MS)),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x80000000)),
-                contentAlignment = Alignment.Center,
-            ) {
-                val label = when {
-                    uiState.isLoading -> "Chargement..."
-                    uiState.error != null -> "Erreur : ${uiState.error}"
-                    uiState.currentVideo != null -> uiState.currentVideo!!.name
-                    else -> ""
-                }
-                if (label.isNotEmpty()) {
-                    Text(
-                        text = label,
-                        color = Color.White,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
+            ControlsOverlay(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = onBack,
+            )
         }
     }
 }

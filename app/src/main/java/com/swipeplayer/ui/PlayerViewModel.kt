@@ -48,11 +48,17 @@ class PlayerViewModel @Inject constructor(
     /** Current position-polling job; cancelled/restarted on play/pause. */
     private var positionPollingJob: Job? = null
 
-    /** Auto-hide timer for controls; restarted on each user interaction. */
-    private var hideControlsJob: Job? = null
-
     /** Pending codec-skip job (2-second delay before auto-skipping). */
     private var codecSkipJob: Job? = null
+
+    /** Brightness bar visibility reset job. */
+    private var hideBrightnessBarJob: Job? = null
+
+    /** Volume bar visibility reset job. */
+    private var hideVolumeBarJob: Job? = null
+
+    /** Double-tap feedback clear job. */
+    private var clearDoubleTapJob: Job? = null
 
     init {
         audioFocusManager.listener = this
@@ -189,8 +195,7 @@ class PlayerViewModel @Inject constructor(
     fun onToggleControls() {
         val nowVisible = !_uiState.value.controlsVisible
         _uiState.update { it.copy(controlsVisible = nowVisible) }
-        if (nowVisible) scheduleHideControls()
-        else hideControlsJob?.cancel()
+        // Auto-hide is handled by ControlsOverlay via LaunchedEffect
     }
 
     fun onZoomChange(scale: Float) {
@@ -221,20 +226,40 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(brightness = brightness.coerceIn(0f, 1f)) }
     }
 
-    /** Incremental brightness update from gesture delta (positive = up = brighter). */
+    /** Incremental brightness update from gesture (positive = drag up = brighter). */
     fun onBrightnessDelta(delta: Float) {
         val cur = _uiState.value.brightness.let { if (it < 0f) 0.5f else it }
-        _uiState.update { it.copy(brightness = (cur + delta).coerceIn(0f, 1f)) }
+        _uiState.update { it.copy(brightness = (cur + delta).coerceIn(0f, 1f), showBrightnessBar = true) }
+        hideBrightnessBarJob?.cancel()
+        hideBrightnessBarJob = viewModelScope.launch {
+            delay(1_500L)
+            _uiState.update { it.copy(showBrightnessBar = false) }
+        }
     }
 
     fun onVolumeChange(volume: Float) {
         _uiState.update { it.copy(volume = volume.coerceIn(0f, 1f)) }
     }
 
-    /** Incremental volume update from gesture delta (positive = up = louder). */
+    /** Incremental volume update from gesture (positive = drag up = louder). */
     fun onVolumeDelta(delta: Float) {
         val cur = _uiState.value.volume
-        _uiState.update { it.copy(volume = (cur + delta).coerceIn(0f, 1f)) }
+        _uiState.update { it.copy(volume = (cur + delta).coerceIn(0f, 1f), showVolumeBar = true) }
+        hideVolumeBarJob?.cancel()
+        hideVolumeBarJob = viewModelScope.launch {
+            delay(1_500L)
+            _uiState.update { it.copy(showVolumeBar = false) }
+        }
+    }
+
+    /** Shows the double-tap feedback animation and clears it after 600ms. */
+    fun onDoubleTap(side: TapSide) {
+        _uiState.update { it.copy(doubleTapSide = side) }
+        clearDoubleTapJob?.cancel()
+        clearDoubleTapJob = viewModelScope.launch {
+            delay(600L)
+            _uiState.update { it.copy(doubleTapSide = null) }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -366,14 +391,6 @@ class PlayerViewModel @Inject constructor(
         positionPollingJob = null
     }
 
-    /** Starts a 4-second timer after which controls are hidden. */
-    private fun scheduleHideControls() {
-        hideControlsJob?.cancel()
-        hideControlsJob = viewModelScope.launch {
-            delay(PlayerConfig.CONTROLS_HIDE_DELAY_MS)
-            _uiState.update { it.copy(controlsVisible = false) }
-        }
-    }
 
     // -------------------------------------------------------------------------
     // Error handling
@@ -392,8 +409,10 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         positionPollingJob?.cancel()
-        hideControlsJob?.cancel()
         codecSkipJob?.cancel()
+        hideBrightnessBarJob?.cancel()
+        hideVolumeBarJob?.cancel()
+        clearDoubleTapJob?.cancel()
         audioFocusManager.listener = null
         playerManager.onCodecFailure = null
         playerManager.close()

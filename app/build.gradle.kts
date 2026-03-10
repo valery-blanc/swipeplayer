@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Media3 ExoPlayer (media3-ui non utilisé : UI gérée en Compose pur)
     implementation(libs.androidx.media3.exoplayer)

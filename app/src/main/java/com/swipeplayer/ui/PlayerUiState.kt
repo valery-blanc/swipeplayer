@@ -74,6 +74,17 @@ data class PlayerUiState(
 
     /** Current media volume fraction (0f..1f). */
     val volume: Float = 1f,
+
+    // --- Transient UI signals ------------------------------------------------
+
+    /** True while the brightness bar should be visible (gesture in progress). */
+    val showBrightnessBar: Boolean = false,
+
+    /** True while the volume bar should be visible (gesture in progress). */
+    val showVolumeBar: Boolean = false,
+
+    /** Non-null while the double-tap feedback animation should play. */
+    val doubleTapSide: TapSide? = null,
 )
 
 // ---------------------------------------------------------------------------

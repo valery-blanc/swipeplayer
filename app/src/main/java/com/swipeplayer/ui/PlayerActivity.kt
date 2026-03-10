@@ -25,7 +25,7 @@ class PlayerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableFullscreen()
         setContent {
-            PlayerScreen(viewModel = viewModel)
+            PlayerScreen(viewModel = viewModel, onBack = { finish() })
         }
         handleIntent(intent)
     }

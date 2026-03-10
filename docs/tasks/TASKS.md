@@ -353,7 +353,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-021 — `TopBar` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/TopBar.kt`
@@ -364,7 +364,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-022 — `CenterControls` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/CenterControls.kt`
@@ -375,7 +375,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-023 — `ProgressBar` composable (seekbar + timecodes)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012, TASK-013
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/ProgressBar.kt`
@@ -390,7 +390,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-024 — `DoubleTapFeedback` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/DoubleTapFeedback.kt`
@@ -401,7 +401,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-025 — `BrightnessControl` + `VolumeControl` composables
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/BrightnessControl.kt`
@@ -413,7 +413,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-026 — `SpeedSelector` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/SpeedSelector.kt`
@@ -424,7 +424,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-027 — `SettingsSheet` composable (audio + sous-titres)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/SettingsSheet.kt`
@@ -436,7 +436,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-028 — `ToolBar` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-026, TASK-027, TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/ToolBar.kt`
@@ -447,7 +447,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-029 — `ControlsOverlay` composable (assemblage + auto-hide)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-021, TASK-022, TASK-023, TASK-024, TASK-025, TASK-028
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/ControlsOverlay.kt`
