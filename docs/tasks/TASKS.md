@@ -217,7 +217,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-013 — `TimeFormat` utilitaire
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-001
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/util/TimeFormat.kt`
