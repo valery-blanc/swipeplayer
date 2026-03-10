@@ -128,7 +128,7 @@ Modèles de données, accès fichiers, historique de navigation.
 
 ### TASK-008 — `PlaybackHistory` (pile de navigation + peekNext)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-005
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/data/PlaybackHistory.kt`
