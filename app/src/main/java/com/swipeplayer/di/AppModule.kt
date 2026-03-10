@@ -13,8 +13,8 @@ import javax.inject.Singleton
 /**
  * Hilt module for application-scoped singletons.
  *
- * Note: VideoRepository and AudioFocusManager use @Inject constructor + @Singleton
- * and are provided automatically by Hilt — no explicit @Provides needed here.
+ * Note: VideoRepository, AudioFocusManager, and VideoPlayerManager use
+ * @Inject constructor + @Singleton and are provided automatically by Hilt.
  */
 @Module
 @InstallIn(SingletonComponent::class)
