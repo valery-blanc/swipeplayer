@@ -10,6 +10,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Hilt module for application-scoped singletons.
+ *
+ * Note: VideoRepository and AudioFocusManager use @Inject constructor + @Singleton
+ * and are provided automatically by Hilt — no explicit @Provides needed here.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {

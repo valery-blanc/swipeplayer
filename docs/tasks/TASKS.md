@@ -110,7 +110,7 @@ Modèles de données, accès fichiers, historique de navigation.
 
 ### TASK-007 — `VideoRepository` (listing + résolution URI)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-004, TASK-005, TASK-006
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/data/VideoRepository.kt`
