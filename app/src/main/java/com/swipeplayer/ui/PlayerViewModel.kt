@@ -40,6 +40,9 @@ class PlayerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
+    /** Current ExoPlayer instance; observed by VideoSurface to attach the surface. */
+    val currentPlayer get() = playerManager.currentPlayer
+
     private val history = PlaybackHistory()
 
     /** Current position-polling job; cancelled/restarted on play/pause. */
@@ -129,13 +132,15 @@ class PlayerViewModel @Inject constructor(
         if (!_uiState.value.isSwipeEnabled) return
         viewModelScope.launch {
             val prev = history.navigateBack() ?: return@launch
-            val newPrevious = history.navigateBack()
-            if (newPrevious != null) history.navigateForward() // restore index
+            // Peek at the video before prev (for page 0 in the pager) without
+            // permanently moving the history pointer.
+            val beforePrev: VideoFile? = if (history.canGoBack) {
+                val tmp = history.navigateBack()!!
+                history.navigateForward()
+                tmp
+            } else null
             _uiState.update {
-                it.copy(
-                    currentVideo = prev,
-                    previousVideo = history.navigateBack()?.also { history.navigateForward() },
-                )
+                it.copy(currentVideo = prev, previousVideo = beforePrev)
             }
             startPlayback(prev)
         }
@@ -216,8 +221,20 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(brightness = brightness.coerceIn(0f, 1f)) }
     }
 
+    /** Incremental brightness update from gesture delta (positive = up = brighter). */
+    fun onBrightnessDelta(delta: Float) {
+        val cur = _uiState.value.brightness.let { if (it < 0f) 0.5f else it }
+        _uiState.update { it.copy(brightness = (cur + delta).coerceIn(0f, 1f)) }
+    }
+
     fun onVolumeChange(volume: Float) {
         _uiState.update { it.copy(volume = volume.coerceIn(0f, 1f)) }
+    }
+
+    /** Incremental volume update from gesture delta (positive = up = louder). */
+    fun onVolumeDelta(delta: Float) {
+        val cur = _uiState.value.volume
+        _uiState.update { it.copy(volume = (cur + delta).coerceIn(0f, 1f)) }
     }
 
     // -------------------------------------------------------------------------
@@ -290,16 +307,14 @@ class PlayerViewModel @Inject constructor(
     // -------------------------------------------------------------------------
 
     private suspend fun startPlayback(video: VideoFile) {
-        val player = playerManager.preparePlayer(video, preloadOnly = false)
-        playerManager.currentPlayer?.let {
-            if (it !== player) playerManager.releasePlayer(it, surfaceView = null)
+        val oldPlayer = playerManager.currentPlayer
+        // preparePlayer sets playerManager.currentPlayer = newPlayer when preloadOnly=false
+        val newPlayer = playerManager.preparePlayer(video, preloadOnly = false)
+        // Release the old player asynchronously (oldPlayer != newPlayer after preparePlayer)
+        oldPlayer?.let {
+            if (it !== newPlayer) viewModelScope.launch { playerManager.releasePlayer(it, null) }
         }
-        // We expose a handle via VideoPlayerManager; UI attaches surface via attachSurface()
-        // The new player reference is set inside preparePlayer
-        viewModelScope.launch {
-            // Wait for player ready then trigger peekNext
-            triggerPeekNext()
-        }
+        triggerPeekNext()
         audioFocusManager.requestFocus()
         startPositionPolling()
         _uiState.update { it.copy(isPlaying = true) }

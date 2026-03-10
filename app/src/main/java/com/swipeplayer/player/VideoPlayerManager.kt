@@ -81,6 +81,7 @@ class VideoPlayerManager @Inject constructor(
             player.setMediaItem(MediaItem.fromUri(video.uri))
             player.playWhenReady = !preloadOnly
             player.prepare()
+            if (!preloadOnly) currentPlayer = player
             player
         }
 
