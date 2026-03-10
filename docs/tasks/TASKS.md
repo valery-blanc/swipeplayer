@@ -179,7 +179,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-011 — `VideoPlayerManager` (max 2 instances, swap, release)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-004, TASK-005, TASK-009
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/player/VideoPlayerManager.kt`
