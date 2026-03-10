@@ -272,7 +272,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-016 — `VideoSurface` composable
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-002, TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/components/VideoSurface.kt`
@@ -286,7 +286,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-017 — `PlayerScreen` (VerticalPager, reset silencieux)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-014, TASK-016
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/screen/PlayerScreen.kt`
@@ -306,7 +306,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-018 — `SwipeDetector`
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-009
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/gesture/SwipeDetector.kt`
@@ -320,7 +320,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-019 — `PinchZoomHandler`
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-009
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/gesture/PinchZoomHandler.kt`
@@ -331,7 +331,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-020 — `GestureHandler` (pointerInput unique)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-017, TASK-018, TASK-019
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/gesture/GestureHandler.kt`
