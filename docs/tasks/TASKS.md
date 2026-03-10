@@ -201,7 +201,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-012 — `PlayerUiState` + types associés
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-005
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/PlayerUiState.kt`
