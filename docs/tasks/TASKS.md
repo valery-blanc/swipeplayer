@@ -151,7 +151,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-009 — `PlayerConfig` (constantes et factory HW+)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-002
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/player/PlayerConfig.kt`
