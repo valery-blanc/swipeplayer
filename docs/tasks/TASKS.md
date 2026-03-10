@@ -253,7 +253,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-015 — `PlayerActivity` (intent handling + fullscreen)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-004, TASK-014
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/ui/PlayerActivity.kt`

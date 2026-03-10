@@ -2,7 +2,9 @@ package com.swipeplayer.player
 
 import android.content.Context
 import android.view.SurfaceView
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -52,6 +54,7 @@ class VideoPlayerManager @Inject constructor(
     // Player creation
     // -------------------------------------------------------------------------
 
+    @OptIn(UnstableApi::class)
     private fun createExoPlayer(): ExoPlayer =
         ExoPlayer.Builder(context)
             .setRenderersFactory(PlayerConfig.renderersFactory(context))

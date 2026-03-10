@@ -1,6 +1,8 @@
 package com.swipeplayer.player
 
 import android.content.Context
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 
@@ -84,6 +86,7 @@ object PlayerConfig {
      *   - setEnableDecoderFallback(false) — no software fallback
      *   - EXTENSION_RENDERER_MODE_OFF    — no extension renderers
      */
+    @OptIn(UnstableApi::class)
     fun renderersFactory(context: Context): DefaultRenderersFactory =
         DefaultRenderersFactory(context)
             .setEnableDecoderFallback(false)
@@ -102,5 +105,6 @@ object PlayerConfig {
      * intended target values; a custom LoadControl can be introduced
      * later if fine-grained tuning is required.
      */
+    @OptIn(UnstableApi::class)
     val loadControl: DefaultLoadControl = DefaultLoadControl()
 }

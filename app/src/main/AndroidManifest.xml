@@ -2,12 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Video file access -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <!-- Keep screen on during playback -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
@@ -21,18 +19,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SwipePlayer">
 
-        <!-- Launcher entry point (temporary — replaced by PlayerActivity in TASK-015) -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.SwipePlayer">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- Main player activity — opened via "Open with" from a file manager -->
         <activity
             android:name=".ui.PlayerActivity"
             android:exported="true"
@@ -40,14 +26,18 @@
             android:launchMode="singleTask"
             android:theme="@style/Theme.SwipePlayer.Fullscreen">
 
-            <!-- Generic video/* without scheme constraint -->
+            <!-- App launcher (for easy testing; can be removed in production) -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- "Open with" for video files -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="video/*" />
             </intent-filter>
-
-            <!-- Explicit file:// and content:// schemes -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
