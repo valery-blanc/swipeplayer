@@ -85,6 +85,11 @@ data class PlayerUiState(
 
     /** Non-null while the double-tap feedback animation should play. */
     val doubleTapSide: TapSide? = null,
+
+    // --- Tracks (audio + subtitles) ------------------------------------------
+
+    val audioTracks: List<TrackInfo> = emptyList(),
+    val subtitleTracks: List<TrackInfo> = emptyList(),
 )
 
 // ---------------------------------------------------------------------------
@@ -115,6 +120,17 @@ enum class OrientationMode {
 
 /** Side of the screen where a double-tap occurred. */
 enum class TapSide { LEFT, RIGHT }
+
+/** Metadata for a single audio or subtitle track exposed by the player. */
+data class TrackInfo(
+    /** Index of the [Tracks.Group] inside [Player.currentTracks]. */
+    val groupIndex: Int,
+    /** Index of the track inside its group. */
+    val trackIndex: Int,
+    val label: String,
+    val language: String? = null,
+    val isSelected: Boolean = false,
+)
 
 /** Playback errors surfaced to the UI as toasts or overlays. */
 sealed class PlayerError {

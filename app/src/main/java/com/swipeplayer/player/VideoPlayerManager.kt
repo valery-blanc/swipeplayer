@@ -4,6 +4,8 @@ import android.content.Context
 import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -14,6 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -48,6 +53,16 @@ class VideoPlayerManager @Inject constructor(
     /** Called when the current player's hardware decoder fails to initialise. */
     var onCodecFailure: (() -> Unit)? = null
 
+    /** Called when the source file cannot be read (e.g. deleted between listing and play). */
+    var onSourceError: (() -> Unit)? = null
+
+    /** Called when the current player's track groups change (STATE_READY). */
+    var onTracksChanged: ((Tracks) -> Unit)? = null
+
+    /** StateFlow of the current (playing) ExoPlayer; null before first video loads. */
+    private val _currentPlayerState = MutableStateFlow<ExoPlayer?>(null)
+    val currentPlayerState: StateFlow<ExoPlayer?> = _currentPlayerState.asStateFlow()
+
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     // -------------------------------------------------------------------------
@@ -78,10 +93,17 @@ class VideoPlayerManager @Inject constructor(
         withContext(Dispatchers.Main) {
             val player = createExoPlayer()
             player.addListener(buildListener(player))
-            player.setMediaItem(MediaItem.fromUri(video.uri))
+            val mediaItem = MediaItem.Builder()
+                .setUri(video.uri)
+                .setMediaMetadata(MediaMetadata.Builder().setTitle(video.name).build())
+                .build()
+            player.setMediaItem(mediaItem)
             player.playWhenReady = !preloadOnly
             player.prepare()
-            if (!preloadOnly) currentPlayer = player
+            if (!preloadOnly) {
+                currentPlayer = player
+                _currentPlayerState.value = player
+            }
             player
         }
 
@@ -181,13 +203,22 @@ class VideoPlayerManager @Inject constructor(
     private fun buildListener(player: ExoPlayer): Player.Listener =
         object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                if (isCodecInitFailure(error)) {
-                    onCodecFailure?.invoke()
+                when {
+                    isCodecInitFailure(error) -> onCodecFailure?.invoke()
+                    isSourceError(error)      -> onSourceError?.invoke()
                 }
+            }
+            override fun onTracksChanged(tracks: Tracks) {
+                // Only report tracks for the current (playing) player
+                if (player === currentPlayer) onTracksChanged?.invoke(tracks)
             }
         }
 
     private fun isCodecInitFailure(error: PlaybackException): Boolean =
         error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
             error.cause?.javaClass?.name?.contains("DecoderInitializationException") == true
+
+    private fun isSourceError(error: PlaybackException): Boolean =
+        error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED
 }

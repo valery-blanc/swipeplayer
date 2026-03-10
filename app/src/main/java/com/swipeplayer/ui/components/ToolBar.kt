@@ -22,15 +22,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.swipeplayer.ui.DisplayMode
 import com.swipeplayer.ui.OrientationMode
+import com.swipeplayer.ui.TrackInfo
 
 @Composable
 fun ToolBar(
     currentSpeed: Float,
     displayMode: DisplayMode,
     orientationMode: OrientationMode,
+    audioTracks: List<TrackInfo> = emptyList(),
+    subtitleTracks: List<TrackInfo> = emptyList(),
     onSpeedSelected: (Float) -> Unit,
     onDisplayModeChange: () -> Unit,
     onOrientationChange: () -> Unit,
+    onAudioTrackSelected: (TrackInfo) -> Unit = {},
+    onSubtitleTrackSelected: (TrackInfo?) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showSettings by remember { mutableStateOf(false) }
@@ -80,6 +85,12 @@ fun ToolBar(
     }
 
     if (showSettings) {
-        SettingsSheet(onDismiss = { showSettings = false })
+        SettingsSheet(
+            audioTracks = audioTracks,
+            subtitleTracks = subtitleTracks,
+            onAudioTrackSelected = onAudioTrackSelected,
+            onSubtitleTrackSelected = onSubtitleTrackSelected,
+            onDismiss = { showSettings = false },
+        )
     }
 }

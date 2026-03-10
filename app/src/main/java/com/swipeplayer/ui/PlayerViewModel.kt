@@ -4,6 +4,10 @@ import android.net.Uri
 import android.view.SurfaceView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.ExoPlayer
 import com.swipeplayer.data.PlaybackHistory
 import com.swipeplayer.data.VideoFile
 import com.swipeplayer.data.VideoRepository
@@ -13,8 +17,11 @@ import com.swipeplayer.player.VideoPlayerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,6 +50,13 @@ class PlayerViewModel @Inject constructor(
     /** Current ExoPlayer instance; observed by VideoSurface to attach the surface. */
     val currentPlayer get() = playerManager.currentPlayer
 
+    /** Flow of the current ExoPlayer — used by PlayerActivity to update MediaSession. */
+    val currentPlayerState: StateFlow<ExoPlayer?> = playerManager.currentPlayerState
+
+    /** One-shot toast messages for the UI to display via Toast.makeText. */
+    private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
+
     private val history = PlaybackHistory()
 
     /** Current position-polling job; cancelled/restarted on play/pause. */
@@ -63,6 +77,8 @@ class PlayerViewModel @Inject constructor(
     init {
         audioFocusManager.listener = this
         playerManager.onCodecFailure = { onCodecFailureDetected() }
+        playerManager.onSourceError  = { onSourceErrorDetected() }
+        playerManager.onTracksChanged = { tracks -> updateTracks(tracks) }
     }
 
     // -------------------------------------------------------------------------
@@ -397,12 +413,97 @@ class PlayerViewModel @Inject constructor(
     // -------------------------------------------------------------------------
 
     private fun onCodecFailureDetected() {
+        viewModelScope.launch {
+            _toastEvents.emit("Codec non supporte - passage a la video suivante")
+        }
         _uiState.update { it.copy(error = PlayerError.CodecNotSupported) }
         codecSkipJob?.cancel()
         codecSkipJob = viewModelScope.launch {
             delay(PlayerConfig.CODEC_FAILURE_SKIP_DELAY_MS)
             _uiState.update { it.copy(error = null) }
             if (_uiState.value.isSwipeEnabled) onSwipeUp()
+        }
+    }
+
+    private fun onSourceErrorDetected() {
+        val current = history.current ?: return
+        viewModelScope.launch {
+            _toastEvents.emit("Fichier introuvable : ${current.name}")
+            // Remove from playlist and skip
+            val newPlaylist = _uiState.value.playlist.filter { it !== current }
+            _uiState.update { it.copy(playlist = newPlaylist) }
+            history.init(
+                history.navigateForward().let { history.current ?: return@launch },
+                newPlaylist,
+            )
+            if (newPlaylist.isEmpty()) {
+                _uiState.update { it.copy(error = PlayerError.FileNotFound) }
+            } else {
+                history.current?.let { next -> startPlayback(next) }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Track detection and selection (TASK-032)
+    // -------------------------------------------------------------------------
+
+    private fun updateTracks(tracks: Tracks) {
+        val audioTracks = mutableListOf<TrackInfo>()
+        val subtitleTracks = mutableListOf<TrackInfo>()
+        tracks.groups.forEachIndexed { groupIndex, group ->
+            when (group.type) {
+                C.TRACK_TYPE_AUDIO -> {
+                    for (i in 0 until group.length) {
+                        val fmt = group.getTrackFormat(i)
+                        audioTracks += TrackInfo(
+                            groupIndex = groupIndex,
+                            trackIndex = i,
+                            label = fmt.label ?: fmt.language ?: "Audio ${audioTracks.size + 1}",
+                            language = fmt.language,
+                            isSelected = group.isTrackSelected(i),
+                        )
+                    }
+                }
+                C.TRACK_TYPE_TEXT -> {
+                    for (i in 0 until group.length) {
+                        val fmt = group.getTrackFormat(i)
+                        subtitleTracks += TrackInfo(
+                            groupIndex = groupIndex,
+                            trackIndex = i,
+                            label = fmt.label ?: fmt.language ?: "Subtitle ${subtitleTracks.size + 1}",
+                            language = fmt.language,
+                            isSelected = group.isTrackSelected(i),
+                        )
+                    }
+                }
+            }
+        }
+        _uiState.update { it.copy(audioTracks = audioTracks, subtitleTracks = subtitleTracks) }
+    }
+
+    fun onAudioTrackSelected(track: TrackInfo) {
+        val player = playerManager.currentPlayer ?: return
+        val group = player.currentTracks.groups.getOrNull(track.groupIndex) ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex))
+            .build()
+    }
+
+    fun onSubtitleTrackSelected(track: TrackInfo?) {
+        val player = playerManager.currentPlayer ?: return
+        player.trackSelectionParameters = if (track == null) {
+            // Disable all subtitles
+            player.trackSelectionParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                .build()
+        } else {
+            val group = player.currentTracks.groups.getOrNull(track.groupIndex) ?: return
+            player.trackSelectionParameters.buildUpon()
+                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex))
+                .build()
         }
     }
 
@@ -415,6 +516,8 @@ class PlayerViewModel @Inject constructor(
         clearDoubleTapJob?.cancel()
         audioFocusManager.listener = null
         playerManager.onCodecFailure = null
+        playerManager.onSourceError = null
+        playerManager.onTracksChanged = null
         playerManager.close()
     }
 }

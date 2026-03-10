@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+    <!-- Legacy template colors (kept for compatibility) -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- SwipePlayer design colors -->
+    <color name="netflix_red">#E50914</color>
+    <color name="controls_overlay">#80000000</color>
+    <color name="progress_buffer">#80FFFFFF</color>
+    <color name="progress_background">#40FFFFFF</color>
+    <color name="brightness_indicator">#FFC107</color>
+    <color name="volume_indicator">#2196F3</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
 </resources>

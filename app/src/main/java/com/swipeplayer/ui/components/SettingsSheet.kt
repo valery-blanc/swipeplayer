@@ -1,30 +1,36 @@
 package com.swipeplayer.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swipeplayer.ui.TrackInfo
 
-/**
- * Settings bottom sheet — shell UI.
- * Audio track and subtitle track lists are populated in TASK-032.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
+    audioTracks: List<TrackInfo>,
+    subtitleTracks: List<TrackInfo>,
+    onAudioTrackSelected: (TrackInfo) -> Unit,
+    onSubtitleTrackSelected: (TrackInfo?) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -38,61 +44,78 @@ fun SettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             // --- Decoder indicator ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Décodeur",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "HW+",
-                    fontSize = 14.sp,
-                    color = Color(0xFF4CAF50),
-                    fontWeight = FontWeight.Bold,
-                )
+                Text("Decodeur", fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                Text("HW+", fontSize = 14.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             // --- Audio tracks ---
-            Text(
-                text = "Piste audio",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Automatique",
-                fontSize = 13.sp,
-                color = Color.Gray,
-            )
+            Text("Piste audio", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(4.dp))
+            if (audioTracks.isEmpty()) {
+                Text("Automatique", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+            } else {
+                audioTracks.forEach { track ->
+                    TrackRow(
+                        label = track.label,
+                        isSelected = track.isSelected,
+                        onClick = { onAudioTrackSelected(track) },
+                    )
+                }
+            }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // --- Subtitles ---
-            Text(
-                text = "Sous-titres",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+            // --- Subtitle tracks ---
+            Text("Sous-titres", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(4.dp))
+            // "None" option
+            val anySubtitleSelected = subtitleTracks.any { it.isSelected }
+            TrackRow(
+                label = "Aucun",
+                isSelected = !anySubtitleSelected,
+                onClick = { onSubtitleTrackSelected(null) },
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Aucun",
-                fontSize = 13.sp,
-                color = Color.Gray,
-            )
+            if (subtitleTracks.isEmpty()) {
+                Text("Pas de sous-titres detectes", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+            } else {
+                subtitleTracks.forEach { track ->
+                    TrackRow(
+                        label = track.label,
+                        isSelected = track.isSelected,
+                        onClick = { onSubtitleTrackSelected(track) },
+                    )
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+private fun TrackRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = isSelected, onClick = onClick)
+        Text(text = label, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
     }
 }

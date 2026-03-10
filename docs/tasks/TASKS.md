@@ -467,7 +467,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-030 — `OrientationManager` utilitaire
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-012
 - **Fichiers à créer** :
   - `app/src/main/java/com/swipeplayer/util/OrientationManager.kt`
@@ -478,7 +478,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-031 — MediaSession (media3-session)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-014, TASK-015
 - **Fichiers à modifier** :
   - `app/src/main/java/com/swipeplayer/ui/PlayerActivity.kt` → créer et lier `MediaSession`
@@ -498,7 +498,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-032 — Support sous-titres (détection + sélection)
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-027, TASK-014
 - **Fichiers à modifier** :
   - `app/src/main/java/com/swipeplayer/ui/PlayerViewModel.kt` → détecter pistes intégrées et fichiers `.srt`/`.ass`/`.ssa` dans le même répertoire ; exposer dans `PlayerUiState`
@@ -513,7 +513,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-033 — Cas limites et gestion d'erreurs
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-014, TASK-020, TASK-029
 - **Fichiers à modifier** :
   - `PlayerViewModel.kt` — compléter/vérifier tous les cas déjà esquissés
@@ -538,7 +538,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-034 — Thème fullscreen + ressources
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : TASK-001
 - **Fichiers à créer/modifier** :
   - `app/src/main/res/values/themes.xml` → thème `Theme.SwipePlayer.Fullscreen` : `windowFullscreen`, `windowTranslucentStatus`, fond noir
@@ -554,7 +554,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ### TASK-035 — Intégration finale et smoke test complet
 
-- **Statut** : `[ ]`
+- **Statut** : `[x]`
 - **Dépendances** : toutes les tâches précédentes
 - **Actions** :
   - Supprimer `MainActivity.kt` si elle n'a pas encore été supprimée

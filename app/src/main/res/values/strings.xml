@@ -1,3 +1,31 @@
 <resources>
     <string name="app_name">SwipePlayer</string>
+
+    <!-- Player errors -->
+    <string name="error_codec_not_supported">Codec non supporte - passage a la video suivante</string>
+    <string name="error_file_not_found">Fichier introuvable</string>
+    <string name="error_content_uri_no_access">Acces au repertoire impossible - lecture du fichier uniquement</string>
+
+    <!-- Controls -->
+    <string name="action_back">Retour</string>
+    <string name="action_play">Lecture</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_seek_back">-10 secondes</string>
+    <string name="action_seek_forward">+10 secondes</string>
+    <string name="action_settings">Reglages</string>
+    <string name="action_speed">Vitesse</string>
+    <string name="action_display_mode">Mode affichage</string>
+    <string name="action_orientation">Orientation</string>
+
+    <!-- Settings sheet -->
+    <string name="settings_decoder">Decodeur</string>
+    <string name="settings_decoder_hwplus">HW+</string>
+    <string name="settings_audio_track">Piste audio</string>
+    <string name="settings_subtitle">Sous-titres</string>
+    <string name="settings_subtitle_none">Aucun</string>
+    <string name="settings_no_subtitles">Pas de sous-titres detectes</string>
+    <string name="settings_auto">Automatique</string>
+
+    <!-- Loading -->
+    <string name="label_loading">Chargement\u2026</string>
 </resources>
