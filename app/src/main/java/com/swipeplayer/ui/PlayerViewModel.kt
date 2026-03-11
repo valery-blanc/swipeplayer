@@ -12,6 +12,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.swipeplayer.data.PlaybackHistory
 import com.swipeplayer.data.VideoFile
 import com.swipeplayer.data.VideoRepository
+import com.swipeplayer.data.VideoStateStore
 import com.swipeplayer.player.AudioFocusManager
 import com.swipeplayer.player.PlayerConfig
 import com.swipeplayer.player.VideoPlayerManager
@@ -45,6 +46,7 @@ class PlayerViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
     private val playerManager: VideoPlayerManager,
     private val audioFocusManager: AudioFocusManager,
+    private val videoStateStore: VideoStateStore,
 ) : ViewModel(), AudioFocusManager.Listener {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -82,6 +84,7 @@ class PlayerViewModel @Inject constructor(
         playerManager.onCodecFailure = { onCodecFailureDetected() }
         playerManager.onSourceError  = { onSourceErrorDetected() }
         playerManager.onTracksChanged = { tracks -> updateTracks(tracks) }
+        playerManager.onPlaybackEnded = { onVideoEnded() }
     }
 
     // -------------------------------------------------------------------------
@@ -145,6 +148,7 @@ class PlayerViewModel @Inject constructor(
     fun onSwipeUp() {
         if (!_uiState.value.isSwipeEnabled) return
         viewModelScope.launch {
+            history.current?.let { saveCurrentState(it) }
             val previous = history.current
             val next = history.navigateForward()
             switchToVideo(next, previousVideo = previous)
@@ -224,12 +228,20 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(zoomScale = clamped) }
     }
 
+    fun onDisplayModeSet(mode: DisplayMode) {
+        _uiState.update { it.copy(displayMode = mode) }
+    }
+
+    // Kept for tests that use the cycle behaviour.
     fun onDisplayModeChange() {
         val next = when (_uiState.value.displayMode) {
             DisplayMode.ADAPT      -> DisplayMode.FILL
             DisplayMode.FILL       -> DisplayMode.STRETCH
             DisplayMode.STRETCH    -> DisplayMode.NATIVE_100
-            DisplayMode.NATIVE_100 -> DisplayMode.ADAPT
+            DisplayMode.NATIVE_100 -> DisplayMode.RATIO_1_1
+            DisplayMode.RATIO_1_1  -> DisplayMode.RATIO_3_4
+            DisplayMode.RATIO_3_4  -> DisplayMode.RATIO_16_9
+            DisplayMode.RATIO_16_9 -> DisplayMode.ADAPT
         }
         _uiState.update { it.copy(displayMode = next) }
     }
@@ -316,7 +328,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onActivityStop() {
-        // Pause if playing; audio focus is abandoned
+        history.current?.let { saveCurrentState(it) }
         if (_uiState.value.isPlaying) {
             playerManager.currentPlayer?.pause()
             audioFocusManager.abandonFocus()
@@ -353,17 +365,45 @@ class PlayerViewModel @Inject constructor(
     // -------------------------------------------------------------------------
 
     private suspend fun startPlayback(video: VideoFile) {
+        // Load persisted state before starting (zoom + displayMode + position).
+        val saved = videoStateStore.load(video.name)
+        if (saved != null) {
+            _uiState.update {
+                it.copy(zoomScale = saved.zoom, displayMode = saved.displayMode)
+            }
+        } else {
+            _uiState.update {
+                it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT)
+            }
+        }
+
         val oldPlayer = playerManager.currentPlayer
-        // preparePlayer sets playerManager.currentPlayer = newPlayer when preloadOnly=false
         val newPlayer = playerManager.preparePlayer(video, preloadOnly = false)
-        // Release the old player asynchronously (oldPlayer != newPlayer after preparePlayer)
         oldPlayer?.let {
             if (it !== newPlayer) viewModelScope.launch { playerManager.releasePlayer(it, null) }
         }
+
+        // Seek to saved position after prepare
+        if (saved != null && saved.positionMs > 0L) {
+            newPlayer.seekTo(saved.positionMs)
+        }
+
         triggerPeekNext()
         audioFocusManager.requestFocus()
         startPositionPolling()
         _uiState.update { it.copy(isPlaying = true) }
+    }
+
+    /** Saves the current playback state for the given video. */
+    private fun saveCurrentState(video: VideoFile) {
+        val state = _uiState.value
+        videoStateStore.save(
+            filename    = video.name,
+            positionMs  = state.positionMs,
+            durationMs  = state.durationMs,
+            zoom        = state.zoomScale,
+            displayMode = state.displayMode,
+        )
     }
 
     private suspend fun switchToVideo(video: VideoFile, previousVideo: VideoFile?) {
@@ -512,6 +552,18 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun onVideoEnded() {
+        if (_uiState.value.isSwipeEnabled) {
+            onSwipeUp()
+        } else {
+            // Single file: seek to beginning and replay
+            val player = playerManager.currentPlayer ?: return
+            player.seekTo(0)
+            player.play()
+            _uiState.update { it.copy(isPlaying = true) }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         positionPollingJob?.cancel()
@@ -523,6 +575,7 @@ class PlayerViewModel @Inject constructor(
         playerManager.onCodecFailure = null
         playerManager.onSourceError = null
         playerManager.onTracksChanged = null
+        playerManager.onPlaybackEnded = null
         playerManager.close()
     }
 }

@@ -1,6 +1,7 @@
 package com.swipeplayer.player
 
 import android.content.Context
+import android.os.HandlerThread
 import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -59,11 +60,19 @@ class VideoPlayerManager @Inject constructor(
     /** Called when the current player's track groups change (STATE_READY). */
     var onTracksChanged: ((Tracks) -> Unit)? = null
 
+    /** Called when the current player reaches STATE_ENDED (video finished). */
+    var onPlaybackEnded: (() -> Unit)? = null
+
     /** StateFlow of the current (playing) ExoPlayer; null before first video loads. */
     private val _currentPlayerState = MutableStateFlow<ExoPlayer?>(null)
     val currentPlayerState: StateFlow<ExoPlayer?> = _currentPlayerState.asStateFlow()
 
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Shared background thread for all ExoPlayer instances.
+    // ExoPlayer requires that all players sharing the same LoadControl also share
+    // the same playback looper — this thread provides that shared looper.
+    private val playbackThread = HandlerThread("SwipePlayer-Playback").also { it.start() }
 
     // -------------------------------------------------------------------------
     // Player creation
@@ -74,6 +83,7 @@ class VideoPlayerManager @Inject constructor(
         ExoPlayer.Builder(context)
             .setRenderersFactory(PlayerConfig.renderersFactory(context))
             .setLoadControl(PlayerConfig.loadControl)
+            .setPlaybackLooper(playbackThread.looper)  // shared looper required when sharing LoadControl
             .build()
 
     // -------------------------------------------------------------------------
@@ -191,9 +201,10 @@ class VideoPlayerManager @Inject constructor(
         n?.let { releasePlayer(it, surfaceView = null) }
     }
 
-    /** Cancels internal scope; call from ViewModel.onCleared if needed. */
+    /** Cancels internal scope and stops the shared playback thread. */
     fun close() {
         managerScope.cancel()
+        playbackThread.quitSafely()
     }
 
     // -------------------------------------------------------------------------
@@ -209,8 +220,12 @@ class VideoPlayerManager @Inject constructor(
                 }
             }
             override fun onTracksChanged(tracks: Tracks) {
-                // Only report tracks for the current (playing) player
                 if (player === currentPlayer) onTracksChanged?.invoke(tracks)
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED && player === currentPlayer) {
+                    onPlaybackEnded?.invoke()
+                }
             }
         }
 
