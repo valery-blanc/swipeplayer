@@ -75,7 +75,7 @@ fun Modifier.gestureHandler(
             val velocityTracker = VelocityTracker()
 
             // --- Gesture start ---
-            val firstDown = awaitFirstDown(requireUnconsumed = false)
+            val firstDown = awaitFirstDown(requireUnconsumed = true)
             val startPos = firstDown.position
             val startTimeMs = System.currentTimeMillis()
             val zone = classifyZone(startPos.x, screenWidthPx)
