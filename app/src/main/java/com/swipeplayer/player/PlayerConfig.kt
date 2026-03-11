@@ -50,7 +50,7 @@ object PlayerConfig {
     // -------------------------------------------------------------------------
 
     const val MIN_ZOOM_SCALE: Float = 1f
-    const val MAX_ZOOM_SCALE: Float = 4f
+    const val MAX_ZOOM_SCALE: Float = 50f
 
     // -------------------------------------------------------------------------
     // UI timings (milliseconds)

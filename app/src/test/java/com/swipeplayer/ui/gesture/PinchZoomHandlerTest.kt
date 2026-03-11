@@ -19,8 +19,8 @@ class PinchZoomHandlerTest {
     }
 
     @Test
-    fun `span doubling from 3x gives 4x (max clamp)`() {
-        assertEquals(4f, handler.calculateNewScale(100f, 200f, 3f), eps)
+    fun `span doubling from 3x gives 6x (no low max clamp)`() {
+        assertEquals(6f, handler.calculateNewScale(100f, 200f, 3f), eps)
     }
 
     @Test
@@ -39,8 +39,8 @@ class PinchZoomHandlerTest {
     }
 
     @Test
-    fun `large span ratio clamped at 4x`() {
-        assertEquals(4f, handler.calculateNewScale(10f, 1000f, 1f), eps)
+    fun `large span ratio clamped at 50x (max)`() {
+        assertEquals(50f, handler.calculateNewScale(10f, 10000f, 1f), eps)
     }
 
     @Test

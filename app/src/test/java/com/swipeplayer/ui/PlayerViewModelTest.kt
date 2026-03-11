@@ -3,6 +3,7 @@ package com.swipeplayer.ui
 import android.net.Uri
 import com.swipeplayer.data.VideoFile
 import com.swipeplayer.data.VideoRepository
+import com.swipeplayer.data.VideoStateStore
 import com.swipeplayer.player.AudioFocusManager
 import com.swipeplayer.player.VideoPlayerManager
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class PlayerViewModelTest {
     private val mockAudioFocusManager: AudioFocusManager = mock {
         on { listener } doReturn null
     }
+    private val mockVideoStateStore: VideoStateStore = mock()
 
     private fun video(name: String) = VideoFile(
         uri = mock<Uri>(),
@@ -54,7 +56,7 @@ class PlayerViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = PlayerViewModel(mockRepo, mockPlayerManager, mockAudioFocusManager)
+        viewModel = PlayerViewModel(mockRepo, mockPlayerManager, mockAudioFocusManager, mockVideoStateStore)
     }
 
     @After
@@ -92,8 +94,8 @@ class PlayerViewModelTest {
 
     @Test
     fun `onZoomChange clamps to PlayerConfig bounds`() {
-        viewModel.onZoomChange(10f)
-        assertEquals(4f, viewModel.uiState.value.zoomScale)
+        viewModel.onZoomChange(100f)
+        assertEquals(50f, viewModel.uiState.value.zoomScale)
         viewModel.onZoomChange(0.1f)
         assertEquals(1f, viewModel.uiState.value.zoomScale)
         viewModel.onZoomChange(2f)
@@ -110,6 +112,20 @@ class PlayerViewModelTest {
         viewModel.onDisplayModeChange()
         assertEquals(DisplayMode.NATIVE_100, viewModel.uiState.value.displayMode)
         viewModel.onDisplayModeChange()
+        assertEquals(DisplayMode.RATIO_1_1, viewModel.uiState.value.displayMode)
+        viewModel.onDisplayModeChange()
+        assertEquals(DisplayMode.RATIO_3_4, viewModel.uiState.value.displayMode)
+        viewModel.onDisplayModeChange()
+        assertEquals(DisplayMode.RATIO_16_9, viewModel.uiState.value.displayMode)
+        viewModel.onDisplayModeChange()
+        assertEquals(DisplayMode.ADAPT, viewModel.uiState.value.displayMode)
+    }
+
+    @Test
+    fun `onDisplayModeSet selects mode directly`() {
+        viewModel.onDisplayModeSet(DisplayMode.RATIO_16_9)
+        assertEquals(DisplayMode.RATIO_16_9, viewModel.uiState.value.displayMode)
+        viewModel.onDisplayModeSet(DisplayMode.ADAPT)
         assertEquals(DisplayMode.ADAPT, viewModel.uiState.value.displayMode)
     }
 
