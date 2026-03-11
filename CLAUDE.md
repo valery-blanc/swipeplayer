@@ -20,6 +20,51 @@ When starting a new session or after /clear, ALWAYS:
 3. Resume from there — do NOT restart completed work
 
 
+### Documentation Synchronization (OBLIGATOIRE)
+
+**À chaque demande de modification, bug fix ou nouvelle feature — quelle que soit
+la façon dont elle est formulée (message direct, fichier temp_*.txt, description
+orale) — TOUJOURS :**
+
+1. **Créer ou mettre à jour le fichier de bug** (`docs/bugs/BUG-XXX-*.md`)
+   ou de feature (`docs/specs/FEAT-XXX-*.md`) correspondant.
+
+2. **Mettre à jour `docs/specs/swipeplayer-specs.md`** pour refléter tout
+   changement de comportement, toute règle révisée ou toute nouvelle fonctionnalité.
+   Ne pas attendre qu'on le demande explicitement — c'est systématique.
+
+3. **Mettre à jour `docs/tasks/TASKS.md`** si la tâche implique > 3 fichiers
+   ou > 3 étapes.
+
+Cette règle s'applique MÊME pour les petites modifications demandées directement
+dans le chat (ex : "désactive la mise en veille", "change la couleur", etc.).
+Si c'est trop petit pour un fichier BUG/FEAT dédié, au minimum mettre à jour
+`swipeplayer-specs.md` si le comportement change.
+
+---
+
+### Bug Fix Workflow
+1. Document the bug in `docs/bugs/BUG-XXX-short-name.md` (symptom,
+   reproduction steps, logcat, impacted spec section)
+2. Analyze root cause BEFORE writing any fix (Plan Mode)
+3. Implement fix + add regression test
+4. Update bug file status to FIXED
+5. **Mettre à jour `docs/specs/swipeplayer-specs.md`** (obligatoire, pas optionnel)
+6. Commit: "FIX BUG-XXX: short description"
+
+### Feature Evolution Workflow
+1. Write feature spec in `docs/specs/FEAT-short-name.md` (context, behavior, technical spec, impact on existing)
+2. Analyze impact on existing code (Plan Mode) : risks and conflicts with existing, what is missing on the feature spec
+3. Break down into tasks in `docs/tasks/TASKS.md`
+4. Implement task by task, commit after each
+5. **Merge feature spec into `docs/specs/swipeplayer-specs.md`** (obligatoire à la fin)
+6. Update CLAUDE.md if architecture rules changed
+
+
+
+
+
+
 ## Build & Run Commands
 
 ```bash
@@ -44,6 +89,9 @@ When starting a new session or after /clear, ALWAYS:
 # Lint
 ./gradlew lint
 ```
+
+
+
 
 ## Project Overview
 
@@ -191,3 +239,5 @@ track selection is available in the settings bottom sheet.
 - Seek latency (tap on progress bar): < 200ms
 - Zero frame drops during swipe animation
 - Memory: < 150MB normal playback, < 250MB during swipe (2 players)
+
+
