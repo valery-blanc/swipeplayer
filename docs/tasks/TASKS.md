@@ -617,6 +617,55 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-006 — Zoom saccadé (zoomScale comme clé pointerInput)
+
+- [x] Documenter : docs/bugs/BUG-006-zoom-not-fluid.md
+- [ ] Fix : GestureHandler.kt — zoomScale en lambda, retirer des clés pointerInput
+- [ ] Fix : PlayerScreen.kt — passer { uiState.zoomScale }
+- [ ] Commit : FIX BUG-006
+
+---
+
+### BUG-007 — Swipe bloqué quand zoomé
+
+- [x] Documenter : docs/bugs/BUG-007-swipe-disabled-when-zoomed.md
+- [ ] Fix : GestureHandler.kt — supprimer zoomScale <= 1f
+- [ ] Commit : FIX BUG-007 (avec BUG-006)
+
+---
+
+### FEAT-001 — Persistance position/zoom/format par vidéo
+
+- [x] Spec : docs/specs/FEAT-001-video-resume.md
+- [ ] PlayerConfig.kt : MAX_ZOOM_SCALE → 50f
+- [ ] Créer data/VideoStateStore.kt
+- [ ] PlayerViewModel.kt : injection + load au démarrage + save au changement
+- [ ] Commit : FEAT-001
+
+---
+
+### FEAT-002 — Bouton format → menu déroulant avec ratios forcés
+
+- [x] Spec : docs/specs/FEAT-002-format-menu.md
+- [ ] PlayerUiState.kt : ajouter RATIO_1_1, RATIO_3_4, RATIO_16_9 à DisplayMode
+- [ ] VideoSurface.kt : gérer les nouveaux modes
+- [ ] Créer ui/components/FormatSelector.kt
+- [ ] ToolBar.kt : remplacer bouton cycle par FormatSelector
+- [ ] ControlsOverlay.kt : adapter la signature
+- [ ] PlayerViewModel.kt : ajouter onDisplayModeSet()
+- [ ] Commit : FEAT-002
+
+---
+
+### FEAT-003 — Passage automatique à la vidéo suivante en fin de lecture
+
+- [x] Spec : docs/specs/FEAT-003-auto-next.md
+- [ ] VideoPlayerManager.kt : onPlaybackEnded callback
+- [ ] PlayerViewModel.kt : onVideoEnded()
+- [ ] Commit : FEAT-003
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

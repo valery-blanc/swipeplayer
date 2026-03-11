@@ -86,7 +86,7 @@ fun PlayerScreen(
             .gestureHandler(
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
-                zoomScale = uiState.zoomScale,
+                zoomScale = { uiState.zoomScale },
                 isSwipeEnabled = uiState.isSwipeEnabled,
                 canSwipeDown = uiState.previousVideo != null,
                 onSwipeUp = {

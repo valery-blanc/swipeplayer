@@ -48,7 +48,7 @@ fun classifyZone(x: Float, screenWidth: Float): GestureZone = when {
 fun Modifier.gestureHandler(
     screenWidthPx: Float,
     screenHeightPx: Float,
-    zoomScale: Float,
+    zoomScale: () -> Float,
     isSwipeEnabled: Boolean,
     canSwipeDown: Boolean,
     onSwipeUp: () -> Unit,
@@ -59,7 +59,7 @@ fun Modifier.gestureHandler(
     onZoom: (Float) -> Unit,
     onBrightnessDelta: (Float) -> Unit,
     onVolumeDelta: (Float) -> Unit,
-): Modifier = this.pointerInput(zoomScale, isSwipeEnabled, canSwipeDown, screenWidthPx, screenHeightPx) {
+): Modifier = this.pointerInput(isSwipeEnabled, canSwipeDown, screenWidthPx, screenHeightPx) {
 
     val minSwipePx = PlayerConfig.SWIPE_MIN_DP * density
     val swipeDetector = SwipeDetector(minSwipePx)
@@ -102,7 +102,7 @@ fun Modifier.gestureHandler(
                     val p2 = active[1].position
                     val span = (p1 - p2).getDistance()
                     if (previousSpan == 0f) previousSpan = span
-                    onZoom(pinchHandler.calculateNewScale(previousSpan, span, zoomScale))
+                    onZoom(pinchHandler.calculateNewScale(previousSpan, span, zoomScale()))
                     previousSpan = span
                     active.forEach { it.consume() }
                     continue
@@ -168,7 +168,7 @@ fun Modifier.gestureHandler(
                             }
                         }
                     }
-                    isDragging && !isHorizontal && isSwipeEnabled && zoomScale <= 1f -> {
+                    isDragging && !isHorizontal && isSwipeEnabled -> {
                         val result = swipeDetector.detect(
                             startY = startPos.y,
                             currentY = startPos.y + totalDelta.y,
