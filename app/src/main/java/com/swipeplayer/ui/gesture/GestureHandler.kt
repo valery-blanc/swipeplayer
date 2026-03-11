@@ -59,6 +59,10 @@ fun Modifier.gestureHandler(
     onZoom: (Float) -> Unit,
     onBrightnessDelta: (Float) -> Unit,
     onVolumeDelta: (Float) -> Unit,
+    onHorizontalSeekStart: () -> Unit = {},
+    onHorizontalSeekUpdate: (deltaX: Float, screenWidthPx: Float) -> Unit = { _, _ -> },
+    onHorizontalSeekEnd: () -> Unit = {},
+    onHorizontalSeekCancel: () -> Unit = {},
 ): Modifier = this.pointerInput(isSwipeEnabled, canSwipeDown, screenWidthPx, screenHeightPx) {
 
     val minSwipePx = PlayerConfig.SWIPE_MIN_DP * density
@@ -86,6 +90,7 @@ fun Modifier.gestureHandler(
             var isPinch = false
             var isDragging = false
             var isHorizontal = false
+            var isSeekingHorizontal = false
             var totalDelta = Offset.Zero
             var lastPos = startPos
 
@@ -135,16 +140,34 @@ fun Modifier.gestureHandler(
                         }
                     }
                     GestureZone.CENTER -> {
-                        if (!isHorizontal && totalDelta.y.absoluteValue >= minSwipePx) {
-                            isDragging = true
+                        if (isSeekingHorizontal) {
+                            onHorizontalSeekUpdate(totalDelta.x, screenWidthPx)
+                            change.consume()
+                        } else if (isHorizontal) {
+                            isSeekingHorizontal = true
+                            onHorizontalSeekStart()
+                            onHorizontalSeekUpdate(totalDelta.x, screenWidthPx)
+                            change.consume()
+                        } else {
+                            if (totalDelta.y.absoluteValue >= minSwipePx) {
+                                isDragging = true
+                            }
+                            change.consume()
                         }
-                        if (!isHorizontal) change.consume()
                     }
                 }
             }
 
             // --- Dispatch result ---
-            if (isPinch) return@awaitEachGesture
+            if (isPinch) {
+                if (isSeekingHorizontal) onHorizontalSeekCancel()
+                return@awaitEachGesture
+            }
+
+            if (isSeekingHorizontal) {
+                onHorizontalSeekEnd()
+                return@awaitEachGesture
+            }
 
             val elapsed = System.currentTimeMillis() - startTimeMs
             val isTap = !isDragging && !isHorizontal && elapsed < 400L

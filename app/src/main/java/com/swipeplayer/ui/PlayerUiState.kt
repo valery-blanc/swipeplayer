@@ -86,6 +86,17 @@ data class PlayerUiState(
     /** Non-null while the double-tap feedback animation should play. */
     val doubleTapSide: TapSide? = null,
 
+    // --- Horizontal seek (FEAT-008) ------------------------------------------
+
+    /** True while the user is performing a horizontal seek gesture. */
+    val isSeekingHorizontally: Boolean = false,
+
+    /** Target position (ms) while seeking horizontally. */
+    val horizontalSeekTargetMs: Long = 0L,
+
+    /** Seek delta (ms) relative to the position at gesture start (negative = backward). */
+    val horizontalSeekDeltaMs: Long = 0L,
+
     // --- Tracks (audio + subtitles) ------------------------------------------
 
     val audioTracks: List<TrackInfo> = emptyList(),

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.ExoPlayer
 import com.swipeplayer.data.PlaybackHistory
 import com.swipeplayer.data.VideoFile
@@ -78,6 +79,12 @@ class PlayerViewModel @Inject constructor(
 
     /** Double-tap feedback clear job. */
     private var clearDoubleTapJob: Job? = null
+
+    /** Position captured at the start of a horizontal seek gesture. */
+    private var seekStartPositionMs = 0L
+
+    /** Whether the player was playing before a horizontal seek gesture paused it. */
+    private var wasPlayingBeforeHorizontalSeek = false
 
     init {
         audioFocusManager.listener = this
@@ -286,6 +293,78 @@ class PlayerViewModel @Inject constructor(
         hideVolumeBarJob = viewModelScope.launch {
             delay(1_500L)
             _uiState.update { it.copy(showVolumeBar = false) }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Horizontal seek (FEAT-008)
+    // -------------------------------------------------------------------------
+
+    /** Called when a horizontal swipe gesture starts on the center zone. */
+    fun onHorizontalSeekStart() {
+        val player = playerManager.currentPlayer ?: return
+        seekStartPositionMs = player.currentPosition
+        wasPlayingBeforeHorizontalSeek = _uiState.value.isPlaying
+        if (wasPlayingBeforeHorizontalSeek) {
+            player.pause()
+            stopPositionPolling()
+        }
+        // Use closest keyframe for fast scrubbing previews.
+        player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+        _uiState.update {
+            it.copy(
+                isSeekingHorizontally = true,
+                horizontalSeekTargetMs = seekStartPositionMs,
+                horizontalSeekDeltaMs = 0L,
+            )
+        }
+    }
+
+    /** Called on each drag event; [deltaX] is total displacement in pixels from gesture start.
+     *  Seeks the player in real-time so the video frame updates while scrubbing. */
+    fun onHorizontalSeekUpdate(deltaX: Float, screenWidthPx: Float) {
+        val duration = _uiState.value.durationMs.coerceAtLeast(0L)
+        val deltaMs = (deltaX / screenWidthPx * 100_000L).toLong()
+        val target = (seekStartPositionMs + deltaMs).coerceIn(0L, duration)
+        playerManager.currentPlayer?.seekTo(target)
+        _uiState.update {
+            it.copy(
+                positionMs = target,
+                horizontalSeekTargetMs = target,
+                horizontalSeekDeltaMs = target - seekStartPositionMs,
+            )
+        }
+    }
+
+    /** Called when the user lifts the finger; does a final exact seek and resumes. */
+    fun onHorizontalSeekEnd() {
+        val target = _uiState.value.horizontalSeekTargetMs
+        val player = playerManager.currentPlayer
+        // Final seek with exact precision.
+        player?.setSeekParameters(SeekParameters.EXACT)
+        player?.seekTo(target)
+        _uiState.update {
+            it.copy(
+                positionMs = target,
+                isSeekingHorizontally = false,
+                horizontalSeekDeltaMs = 0L,
+            )
+        }
+        if (wasPlayingBeforeHorizontalSeek) {
+            player?.play()
+            startPositionPolling()
+            _uiState.update { it.copy(isPlaying = true) }
+        }
+    }
+
+    /** Called when the gesture is interrupted (e.g. pinch starts); no additional seek. */
+    fun onHorizontalSeekCancel() {
+        playerManager.currentPlayer?.setSeekParameters(SeekParameters.EXACT)
+        _uiState.update { it.copy(isSeekingHorizontally = false, horizontalSeekDeltaMs = 0L) }
+        if (wasPlayingBeforeHorizontalSeek) {
+            playerManager.currentPlayer?.play()
+            startPositionPolling()
+            _uiState.update { it.copy(isPlaying = true) }
         }
     }
 
