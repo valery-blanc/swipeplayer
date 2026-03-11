@@ -13,7 +13,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.swipeplayer.ui.components.ControlsOverlay
 import androidx.compose.ui.graphics.Color
@@ -22,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.swipeplayer.player.PlayerConfig
 import com.swipeplayer.ui.PlayerViewModel
+import com.swipeplayer.ui.components.SettingsSheet
 import com.swipeplayer.ui.components.VideoSurface
 import com.swipeplayer.ui.gesture.gestureHandler
 import kotlinx.coroutines.launch
@@ -37,6 +41,10 @@ import kotlinx.coroutines.launch
  * Swipes are detected by [gestureHandler] which programmatically scrolls
  * the pager. When the page actually changes, [LaunchedEffect] notifies
  * the ViewModel and silently resets the pager to page 1.
+ *
+ * [showSettingsSheet] is managed here (outside AnimatedVisibility) so the
+ * SettingsSheet survives the controls auto-hide animation and the auto-hide
+ * timer is suspended while the sheet is open (BUG-003).
  */
 @Composable
 fun PlayerScreen(
@@ -51,6 +59,10 @@ fun PlayerScreen(
     val configuration = LocalConfiguration.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+
+    // Settings sheet visibility lives outside AnimatedVisibility so the sheet
+    // is not destroyed when the controls overlay fades out.
+    var showSettingsSheet by remember { mutableStateOf(false) }
 
     // When the page actually changes (swipe animation completed), notify the
     // ViewModel and silently snap back to page 1.
@@ -117,6 +129,7 @@ fun PlayerScreen(
                     VideoSurface(
                         player = viewModel.currentPlayer,
                         zoomScale = uiState.zoomScale,
+                        displayMode = uiState.displayMode,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -133,6 +146,21 @@ fun PlayerScreen(
                 uiState = uiState,
                 viewModel = viewModel,
                 onBack = onBack,
+                showSettingsSheet = showSettingsSheet,
+                onShowSettings = { showSettingsSheet = true },
+            )
+        }
+
+        // SettingsSheet is rendered OUTSIDE AnimatedVisibility so it persists
+        // when the controls overlay fades out, and so the auto-hide timer can
+        // be suspended while it is open.
+        if (showSettingsSheet) {
+            SettingsSheet(
+                audioTracks = uiState.audioTracks,
+                subtitleTracks = uiState.subtitleTracks,
+                onAudioTrackSelected = viewModel::onAudioTrackSelected,
+                onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,
+                onDismiss = { showSettingsSheet = false },
             )
         }
     }

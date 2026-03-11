@@ -582,10 +582,10 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 ### BUG-002 — Vidéo étirée (STRETCH) au lieu de ADAPT par défaut
 
 - [x] Documenter : docs/bugs/BUG-002-default-display-mode-stretch.md
-- [ ] Fix : VideoSurface.kt — ajouter displayMode + tracking vidéo size + BoxWithConstraints
-- [ ] Fix : PlayerScreen.kt — passer displayMode à VideoSurface
-- [ ] Mettre bug à FIXED
-- [ ] Commit : FIX BUG-002
+- [x] Fix : VideoSurface.kt — ajouter displayMode + tracking vidéo size + BoxWithConstraints
+- [x] Fix : PlayerScreen.kt — passer displayMode à VideoSurface
+- [x] Mettre bug à FIXED
+- [x] Commit : FIX BUG-002
 
 ---
 
