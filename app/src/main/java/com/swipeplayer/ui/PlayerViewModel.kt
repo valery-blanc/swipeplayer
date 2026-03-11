@@ -271,13 +271,17 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onVolumeChange(volume: Float) {
-        _uiState.update { it.copy(volume = volume.coerceIn(0f, 1f)) }
+        val clamped = volume.coerceIn(0f, 1f)
+        playerManager.currentPlayer?.volume = clamped
+        _uiState.update { it.copy(volume = clamped) }
     }
 
     /** Incremental volume update from gesture (positive = drag up = louder). */
     fun onVolumeDelta(delta: Float) {
         val cur = _uiState.value.volume
-        _uiState.update { it.copy(volume = (cur + delta).coerceIn(0f, 1f), showVolumeBar = true) }
+        val newVolume = (cur + delta).coerceIn(0f, 1f)
+        playerManager.currentPlayer?.volume = newVolume
+        _uiState.update { it.copy(volume = newVolume, showVolumeBar = true) }
         hideVolumeBarJob?.cancel()
         hideVolumeBarJob = viewModelScope.launch {
             delay(1_500L)
