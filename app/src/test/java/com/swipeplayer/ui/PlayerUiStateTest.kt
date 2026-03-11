@@ -18,8 +18,8 @@ class PlayerUiStateTest {
     }
 
     @Test
-    fun `swipe is enabled by default`() {
-        assertTrue(state.isSwipeEnabled)
+    fun `swipe is disabled by default (enabled only after playlist loads)`() {
+        assertFalse(state.isSwipeEnabled)
     }
 
     @Test

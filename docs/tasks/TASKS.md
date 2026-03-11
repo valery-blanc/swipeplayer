@@ -567,6 +567,39 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+## Bug Fixes
+
+### BUG-001 — isSwipeEnabled default = true (crash au swipe)
+
+- [x] Documenter : docs/bugs/BUG-001-swipe-crash-history-not-init.md
+- [x] Fix : PlayerUiState.kt — isSwipeEnabled default = false
+- [x] Tests : PlayerUiStateTest + PlayerViewModelTest (regression)
+- [x] Mettre bug à FIXED
+- [x] Commit : FIX BUG-001
+
+---
+
+### BUG-002 — Vidéo étirée (STRETCH) au lieu de ADAPT par défaut
+
+- [x] Documenter : docs/bugs/BUG-002-default-display-mode-stretch.md
+- [ ] Fix : VideoSurface.kt — ajouter displayMode + tracking vidéo size + BoxWithConstraints
+- [ ] Fix : PlayerScreen.kt — passer displayMode à VideoSurface
+- [ ] Mettre bug à FIXED
+- [ ] Commit : FIX BUG-002
+
+---
+
+### BUG-003 — Menu réglages se ferme immédiatement
+
+- [x] Documenter : docs/bugs/BUG-003-settings-menu-closes-immediately.md
+- [ ] Fix : ToolBar.kt — supprimer état local showSettings, ajouter paramètres
+- [ ] Fix : ControlsOverlay.kt — ajouter showSettingsSheet param, suspendre timer
+- [ ] Fix : PlayerScreen.kt — gérer showSettingsSheet, SettingsSheet hors AnimatedVisibility
+- [ ] Mettre bug à FIXED
+- [ ] Commit : FIX BUG-003
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

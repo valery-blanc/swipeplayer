@@ -7,7 +7,6 @@ import com.swipeplayer.player.AudioFocusManager
 import com.swipeplayer.player.VideoPlayerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -164,21 +163,43 @@ class PlayerViewModelTest {
     }
 
     // -------------------------------------------------------------------------
+    // BUG-001 regression — onSwipeUp before onIntentReceived must not crash
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `initial state has swipe disabled (BUG-001 regression)`() {
+        // isSwipeEnabled must default to false so that onSwipeUp called before
+        // onIntentReceived (and therefore before history.init) is a no-op.
+        assertFalse(viewModel.uiState.value.isSwipeEnabled)
+    }
+
+    @Test
+    fun `onSwipeUp before onIntentReceived does not crash`() = runTest {
+        // PlaybackHistory is uninitialised at this point.
+        // The guard !isSwipeEnabled must prevent navigateForward() from being called.
+        viewModel.onSwipeUp()
+        testDispatcher.scheduler.advanceUntilIdle()
+        // If we reach here without IllegalStateException the bug is fixed.
+        assertFalse(viewModel.uiState.value.isSwipeEnabled)
+    }
+
+    @Test
+    fun `onSwipeDown before onIntentReceived does not crash`() = runTest {
+        viewModel.onSwipeDown()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSwipeEnabled)
+    }
+
+    // -------------------------------------------------------------------------
     // onSwipeUp / onSwipeDown when swipe is disabled
     // -------------------------------------------------------------------------
 
     @Test
     fun `onSwipeUp is no-op when isSwipeEnabled is false`() = runTest {
-        // Access _uiState via reflection and force isSwipeEnabled = false
-        val field = viewModel.javaClass.getDeclaredField("_uiState")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(viewModel) as MutableStateFlow<PlayerUiState>
-        flow.value = flow.value.copy(isSwipeEnabled = false)
-
+        // isSwipeEnabled is already false by default; just verify the guard.
+        assertFalse(viewModel.uiState.value.isSwipeEnabled)
         viewModel.onSwipeUp()
         testDispatcher.scheduler.advanceUntilIdle()
-
         assertFalse(viewModel.uiState.value.isSwipeEnabled)
     }
 }

@@ -34,7 +34,7 @@ data class PlayerUiState(
      * False when the directory contains only one video, or when a content://
      * URI with no directory access was provided.
      */
-    val isSwipeEnabled: Boolean = true,
+    val isSwipeEnabled: Boolean = false,
 
     // --- Playback ------------------------------------------------------------
 
