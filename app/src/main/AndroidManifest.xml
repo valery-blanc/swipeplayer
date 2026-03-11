@@ -29,27 +29,157 @@
             android:launchMode="singleTask"
             android:theme="@style/Theme.SwipePlayer.Fullscreen">
 
-            <!-- App launcher (for easy testing; can be removed in production) -->
+            <!-- App launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- "Open with" for video files -->
+            <!--
+                "Open with" — MIME type matching (primary path, MIME type set by file manager).
+                BROWSABLE is required by some file managers when building the chooser list.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="video/*" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="video/*" />
+            </intent-filter>
+
+            <!-- Catchall: any URI scheme with video/* (e.g. http streams) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="video/*" />
             </intent-filter>
+
+            <!--
+                "Open with" — path pattern matching (fallback when MIME type is not set).
+                Some file managers (including FX File Explorer) send ACTION_VIEW with only
+                the URI and no explicit MIME type. VLC / MX Player appear in the chooser
+                because they match by file extension. We do the same for all 12 supported
+                extensions, for both content:// and file:// URIs.
+                android:pathPattern uses .* to match any prefix (including URL-encoded chars).
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="file" android:mimeType="video/*" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.mp4" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.MP4" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.mp4" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.MP4" />
             </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" android:mimeType="video/*" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.mkv" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.MKV" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.mkv" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.MKV" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.avi" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.AVI" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.avi" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.AVI" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.mov" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.MOV" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.mov" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.MOV" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.wmv" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.WMV" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.wmv" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.WMV" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.webm" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.WEBM" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.webm" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.WEBM" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.flv" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.FLV" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.flv" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.FLV" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.m4v" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.M4V" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.m4v" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.M4V" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.3gp" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.3GP" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.3gp" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.3GP" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.ts" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.TS" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.ts" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.TS" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.mpg" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.MPG" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.mpeg" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.MPEG" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.mpg" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.MPG" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.mpeg" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.MPEG" />
             </intent-filter>
 
         </activity>
