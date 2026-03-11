@@ -34,12 +34,16 @@ private val FORMAT_OPTIONS = listOf(
 fun FormatSelector(
     currentMode: DisplayMode,
     onFormatSelected: (DisplayMode) -> Unit,
+    onMenuStateChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     IconButton(
-        onClick = { expanded = true },
+        onClick = {
+            expanded = true
+            onMenuStateChange(true)
+        },
         modifier = modifier,
     ) {
         Icon(
@@ -52,7 +56,10 @@ fun FormatSelector(
 
     DropdownMenu(
         expanded = expanded,
-        onDismissRequest = { expanded = false },
+        onDismissRequest = {
+            expanded = false
+            onMenuStateChange(false)
+        },
     ) {
         FORMAT_OPTIONS.forEach { (mode, label) ->
             val isSelected = mode == currentMode
@@ -66,6 +73,7 @@ fun FormatSelector(
                 },
                 onClick = {
                     expanded = false
+                    onMenuStateChange(false)
                     onFormatSelected(mode)
                 },
             )

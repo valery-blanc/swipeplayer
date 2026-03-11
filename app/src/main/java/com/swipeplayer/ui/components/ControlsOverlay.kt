@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,10 +45,13 @@ fun ControlsOverlay(
     onShowSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Track whether any dropdown menu (speed, format) is currently open.
+    var isAnyMenuOpen by remember { mutableStateOf(false) }
+
     // Auto-hide timer: restart whenever controls become visible.
-    // Suspended while the settings sheet is open.
-    LaunchedEffect(uiState.controlsVisible, showSettingsSheet) {
-        if (uiState.controlsVisible && !showSettingsSheet) {
+    // Suspended while the settings sheet or any dropdown menu is open.
+    LaunchedEffect(uiState.controlsVisible, showSettingsSheet, isAnyMenuOpen) {
+        if (uiState.controlsVisible && !showSettingsSheet && !isAnyMenuOpen) {
             delay(PlayerConfig.CONTROLS_HIDE_DELAY_MS)
             viewModel.onToggleControls()
         }
@@ -93,6 +100,7 @@ fun ControlsOverlay(
                 onSpeedSelected = viewModel::onSpeedChange,
                 onFormatSelected = viewModel::onDisplayModeSet,
                 onOrientationChange = viewModel::onOrientationChange,
+                onMenuStateChange = { isAnyMenuOpen = it },
                 onAudioTrackSelected = viewModel::onAudioTrackSelected,
                 onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,
                 onShowSettings = onShowSettings,

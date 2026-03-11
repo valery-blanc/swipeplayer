@@ -666,6 +666,41 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-008 — Menu format/vitesse se referme immédiatement
+
+- [x] Documenter : docs/bugs/BUG-008-format-menu-closes-immediately.md
+- [ ] Fix : FormatSelector.kt + SpeedSelector.kt — onMenuStateChange callback
+- [ ] Fix : ToolBar.kt — propager le callback
+- [ ] Fix : ControlsOverlay.kt — suspendre timer si menu ouvert
+- [ ] Commit : FIX BUG-008
+
+---
+
+### BUG-009 — Volume slider sans effet sur le son
+
+- [x] Documenter : docs/bugs/BUG-009-volume-slider-no-effect.md
+- [ ] Fix : PlayerViewModel.kt — appliquer volume au player dans onVolumeDelta/onVolumeChange
+- [ ] Commit : FIX BUG-009
+
+---
+
+### FEAT-004 — Icône originale
+
+- [x] Spec : docs/specs/FEAT-004-app-icon.md
+- [ ] ic_launcher_background.xml — fond rouge #E50914
+- [ ] ic_launcher_foreground.xml — triangle play + chevrons swipe (blanc)
+- [ ] Commit : FEAT-004
+
+---
+
+### FEAT-005 — Lancement depuis icône : sélection de vidéo
+
+- [x] Spec : docs/specs/FEAT-005-launcher-file-picker.md
+- [ ] PlayerScreen.kt — écran "Choisir une vidéo" si currentVideo == null
+- [ ] Commit : FEAT-005
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

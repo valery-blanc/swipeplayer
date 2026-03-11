@@ -29,6 +29,7 @@ fun ToolBar(
     onSpeedSelected: (Float) -> Unit,
     onFormatSelected: (DisplayMode) -> Unit,
     onOrientationChange: () -> Unit,
+    onMenuStateChange: (Boolean) -> Unit = {},
     onAudioTrackSelected: (TrackInfo) -> Unit = {},
     onSubtitleTrackSelected: (TrackInfo?) -> Unit = {},
     onShowSettings: () -> Unit,
@@ -45,6 +46,7 @@ fun ToolBar(
         SpeedSelector(
             currentSpeed = currentSpeed,
             onSpeedSelected = onSpeedSelected,
+            onMenuStateChange = onMenuStateChange,
         )
 
         // Settings
@@ -61,6 +63,7 @@ fun ToolBar(
         FormatSelector(
             currentMode = displayMode,
             onFormatSelected = onFormatSelected,
+            onMenuStateChange = onMenuStateChange,
         )
 
         // Orientation
