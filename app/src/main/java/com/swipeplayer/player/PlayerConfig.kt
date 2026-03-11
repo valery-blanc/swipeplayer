@@ -89,7 +89,7 @@ object PlayerConfig {
     @OptIn(UnstableApi::class)
     fun renderersFactory(context: Context): DefaultRenderersFactory =
         DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(false)
+            .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
     // -------------------------------------------------------------------------
