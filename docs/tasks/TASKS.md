@@ -620,84 +620,83 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 ### BUG-006 — Zoom saccadé (zoomScale comme clé pointerInput)
 
 - [x] Documenter : docs/bugs/BUG-006-zoom-not-fluid.md
-- [ ] Fix : GestureHandler.kt — zoomScale en lambda, retirer des clés pointerInput
-- [ ] Fix : PlayerScreen.kt — passer { uiState.zoomScale }
-- [ ] Commit : FIX BUG-006
+- [x] Fix : GestureHandler.kt — zoomScale en lambda, retirer des clés pointerInput
+- [x] Fix : PlayerScreen.kt — passer { uiState.zoomScale }
+- [x] Commit : FIX BUG-006 (a6a8f95)
 
 ---
 
 ### BUG-007 — Swipe bloqué quand zoomé
 
 - [x] Documenter : docs/bugs/BUG-007-swipe-disabled-when-zoomed.md
-- [ ] Fix : GestureHandler.kt — supprimer zoomScale <= 1f
-- [ ] Commit : FIX BUG-007 (avec BUG-006)
+- [x] Fix : GestureHandler.kt — supprimer zoomScale <= 1f
+- [x] Commit : FIX BUG-007 (a6a8f95, avec BUG-006)
 
 ---
 
 ### FEAT-001 — Persistance position/zoom/format par vidéo
 
 - [x] Spec : docs/specs/FEAT-001-video-resume.md
-- [ ] PlayerConfig.kt : MAX_ZOOM_SCALE → 50f
-- [ ] Créer data/VideoStateStore.kt
-- [ ] PlayerViewModel.kt : injection + load au démarrage + save au changement
-- [ ] Commit : FEAT-001
+- [x] PlayerConfig.kt : MAX_ZOOM_SCALE → 50f
+- [x] Créer data/VideoStateStore.kt
+- [x] PlayerViewModel.kt : injection + load au démarrage + save au changement
+- [x] Commit : FEAT-001 (83bfb77)
 
 ---
 
 ### FEAT-002 — Bouton format → menu déroulant avec ratios forcés
 
 - [x] Spec : docs/specs/FEAT-002-format-menu.md
-- [ ] PlayerUiState.kt : ajouter RATIO_1_1, RATIO_3_4, RATIO_16_9 à DisplayMode
-- [ ] VideoSurface.kt : gérer les nouveaux modes
-- [ ] Créer ui/components/FormatSelector.kt
-- [ ] ToolBar.kt : remplacer bouton cycle par FormatSelector
-- [ ] ControlsOverlay.kt : adapter la signature
-- [ ] PlayerViewModel.kt : ajouter onDisplayModeSet()
-- [ ] Commit : FEAT-002
+- [x] PlayerUiState.kt : ajouter RATIO_1_1, RATIO_3_4, RATIO_16_9 à DisplayMode
+- [x] VideoSurface.kt : gérer les nouveaux modes
+- [x] Créer ui/components/FormatSelector.kt
+- [x] ToolBar.kt : remplacer bouton cycle par FormatSelector
+- [x] ControlsOverlay.kt : adapter la signature
+- [x] PlayerViewModel.kt : ajouter onDisplayModeSet()
+- [x] Commit : FEAT-002 (740fa38)
 
 ---
 
 ### FEAT-003 — Passage automatique à la vidéo suivante en fin de lecture
 
 - [x] Spec : docs/specs/FEAT-003-auto-next.md
-- [ ] VideoPlayerManager.kt : onPlaybackEnded callback
-- [ ] PlayerViewModel.kt : onVideoEnded()
-- [ ] Commit : FEAT-003
+- [x] VideoPlayerManager.kt : onPlaybackEnded callback
+- [x] PlayerViewModel.kt : onVideoEnded()
+- [x] Commit : FEAT-003 (e11cb70)
 
 ---
 
 ### BUG-008 — Menu format/vitesse se referme immédiatement
 
 - [x] Documenter : docs/bugs/BUG-008-format-menu-closes-immediately.md
-- [ ] Fix : FormatSelector.kt + SpeedSelector.kt — onMenuStateChange callback
-- [ ] Fix : ToolBar.kt — propager le callback
-- [ ] Fix : ControlsOverlay.kt — suspendre timer si menu ouvert
-- [ ] Commit : FIX BUG-008
+- [x] Fix : FormatSelector.kt + SpeedSelector.kt — onMenuStateChange callback
+- [x] Fix : ToolBar.kt — propager le callback
+- [x] Fix : ControlsOverlay.kt — suspendre timer si menu ouvert
+- [x] Commit : FIX BUG-008 (d97b97f, 4e7d563)
 
 ---
 
 ### BUG-009 — Volume slider sans effet sur le son
 
 - [x] Documenter : docs/bugs/BUG-009-volume-slider-no-effect.md
-- [ ] Fix : PlayerViewModel.kt — appliquer volume au player dans onVolumeDelta/onVolumeChange
-- [ ] Commit : FIX BUG-009
+- [x] Fix : PlayerViewModel.kt — appliquer volume au player dans onVolumeDelta/onVolumeChange
+- [x] Commit : FIX BUG-009 (752a3e4)
 
 ---
 
 ### FEAT-004 — Icône originale
 
 - [x] Spec : docs/specs/FEAT-004-app-icon.md
-- [ ] ic_launcher_background.xml — fond rouge #E50914
-- [ ] ic_launcher_foreground.xml — triangle play + chevrons swipe (blanc)
-- [ ] Commit : FEAT-004
+- [x] Icône PNG fournie par l'utilisateur — legacy + round + adaptive générés par script Pillow
+- [x] Commit : FEAT-004 (23d7f1e) + icône PNG utilisateur (ce commit)
 
 ---
 
 ### FEAT-005 — Lancement depuis icône : sélection de vidéo
 
 - [x] Spec : docs/specs/FEAT-005-launcher-file-picker.md
-- [ ] PlayerScreen.kt — écran "Choisir une vidéo" si currentVideo == null
-- [ ] Commit : FEAT-005
+- [x] PlayerScreen.kt — écran "Choisir une vidéo" si currentVideo == null
+- [x] Commit : FEAT-005 (c2de903)
 
 ---
 
@@ -712,6 +711,36 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 - [x] Spec : docs/specs/FEAT-006-keep-screen-on.md
 - [x] Impl : PlayerActivity.kt — FLAG_KEEP_SCREEN_ON via LaunchedEffect(isPlaying)
+
+---
+
+### BUG-011 — Sliders luminosité/volume invisibles quand les contrôles sont cachés
+
+- [x] Documenter : docs/bugs/BUG-011-brightness-volume-hidden-when-controls-hidden.md
+- [x] Fix : ControlsOverlay.kt — sortir BrightnessControl et VolumeControl du bloc AnimatedVisibility des contrôles principaux
+- [x] Fix : PlayerScreen.kt — BrightnessControl et VolumeControl déplacés dans le Box principal hors AnimatedVisibility
+- [x] Mettre bug à FIXED
+- [x] Commit : FIX BUG-011
+
+---
+
+### FEAT-007 — Menu vitesses : 0.33x ajouté, 1.25x et 1.75x supprimés
+
+- [x] Spec : docs/specs/FEAT-007-speed-menu-update.md
+- [x] SpeedSelector.kt — SPEED_OPTIONS mis à jour (0.25, 0.33, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0)
+- [x] Commit : FEAT-007
+
+---
+
+### FEAT-008 — Seek par swipe horizontal (style MX Player)
+
+- [x] Spec : docs/specs/FEAT-008-horizontal-swipe-seek.md
+- [x] PlayerUiState.kt — isSeekingHorizontally, horizontalSeekTargetMs, horizontalSeekDeltaMs
+- [x] PlayerViewModel.kt — onHorizontalSeekStart/Update/End/Cancel
+- [x] Créer ui/components/HorizontalSeekIndicator.kt
+- [x] GestureHandler.kt — détection swipe horizontal + callbacks seek
+- [x] PlayerScreen.kt — HorizontalSeekIndicator + wiring des callbacks
+- [x] Commit : FEAT-008
 
 ---
 

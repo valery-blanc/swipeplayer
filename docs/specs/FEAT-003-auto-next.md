@@ -1,5 +1,7 @@
 # FEAT-003 — Passage automatique à la vidéo suivante en fin de lecture
 
+## Statut : DONE
+
 ## Contexte
 
 Quand une vidéo se termine, l'app s'arrête sur la dernière frame. L'utilisateur

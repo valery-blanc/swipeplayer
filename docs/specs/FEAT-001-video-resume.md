@@ -1,5 +1,7 @@
 # FEAT-001 — Persistance de l'état vidéo (position, zoom, format)
 
+## Statut : DONE
+
 ## Contexte
 
 Quand l'utilisateur reprend une vidéo déjà vue, elle repart du début avec le zoom

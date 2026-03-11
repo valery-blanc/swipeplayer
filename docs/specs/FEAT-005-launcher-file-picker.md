@@ -1,5 +1,7 @@
 # FEAT-005 — Lancement depuis l'icône : sélection d'une vidéo
 
+## Statut : DONE
+
 ## Contexte
 
 Quand l'app est lancée depuis son icône (sans URI vidéo), elle affiche un écran

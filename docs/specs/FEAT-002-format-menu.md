@@ -1,5 +1,7 @@
 # FEAT-002 — Bouton format → menu déroulant avec ratios forcés
 
+## Statut : DONE
+
 ## Contexte
 
 Le bouton format actuel cycle entre 4 modes (Adapter → Remplir → Étirer → 100%).
