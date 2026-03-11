@@ -103,6 +103,15 @@ class PlayerActivity : ComponentActivity() {
                 applyOrientation(this@PlayerActivity, uiState.orientationMode)
             }
 
+            // Keep screen on while a video is playing; allow sleep when paused.
+            LaunchedEffect(uiState.isPlaying) {
+                if (uiState.isPlaying) {
+                    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
             // Apply in-app brightness via WindowManager
             LaunchedEffect(uiState.brightness) {
                 if (uiState.brightness >= 0f) {
