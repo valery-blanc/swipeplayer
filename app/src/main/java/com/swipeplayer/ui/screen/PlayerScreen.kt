@@ -31,7 +31,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.swipeplayer.ui.components.BrightnessControl
 import com.swipeplayer.ui.components.ControlsOverlay
+import com.swipeplayer.ui.components.HorizontalSeekIndicator
+import com.swipeplayer.ui.components.VolumeControl
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -141,6 +146,10 @@ fun PlayerScreen(
                 onZoom = viewModel::onZoomChange,
                 onBrightnessDelta = viewModel::onBrightnessDelta,
                 onVolumeDelta = viewModel::onVolumeDelta,
+                onHorizontalSeekStart = viewModel::onHorizontalSeekStart,
+                onHorizontalSeekUpdate = viewModel::onHorizontalSeekUpdate,
+                onHorizontalSeekEnd = viewModel::onHorizontalSeekEnd,
+                onHorizontalSeekCancel = viewModel::onHorizontalSeekCancel,
             ),
     ) {
         VerticalPager(
@@ -180,6 +189,35 @@ fun PlayerScreen(
                 onBack = onBack,
                 showSettingsSheet = showSettingsSheet,
                 onShowSettings = { showSettingsSheet = true },
+            )
+        }
+
+        // Brightness bar — outside AnimatedVisibility so it is visible even when
+        // the main controls are hidden (BUG-011).
+        BrightnessControl(
+            brightness = uiState.brightness.coerceAtLeast(0f),
+            visible = uiState.showBrightnessBar,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .wrapContentWidth(),
+        )
+
+        // Volume bar — same rationale as BrightnessControl (BUG-011).
+        VolumeControl(
+            volume = uiState.volume,
+            visible = uiState.showVolumeBar,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .wrapContentWidth(),
+        )
+
+        // Horizontal seek indicator — shown during swipe-seek gesture (FEAT-008).
+        if (uiState.isSeekingHorizontally) {
+            HorizontalSeekIndicator(
+                targetMs = uiState.horizontalSeekTargetMs,
+                deltaMs = uiState.horizontalSeekDeltaMs,
             )
         }
 

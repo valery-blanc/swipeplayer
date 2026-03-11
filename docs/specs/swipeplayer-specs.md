@@ -1,6 +1,8 @@
 # SwipePlayer — Spécifications Techniques Complètes
 
-> **Version** : mise à jour intégrant FEAT-001 à FEAT-006 et BUG-001 à BUG-010.
+> **Version** : mise à jour intégrant FEAT-001 à FEAT-008 et BUG-001 à BUG-011.
+> FEAT-004 (icône PNG utilisateur), FEAT-007 (vitesses), FEAT-008 (seek horizontal
+> temps réel), BUG-011 (sliders toujours visibles) : tous implémentés et déployés.
 > Pour l'historique des bugs et features, voir `docs/bugs/` et `docs/specs/FEAT-*.md`.
 
 ## 1. Vue d'ensemble du projet
@@ -259,10 +261,18 @@ Contrôles apparaissent/disparaissent par tap au centre.
 Swipe vertical → `WindowManager.LayoutParams.screenBrightness` (0.0f–1.0f).
 Feedback : barre verticale + icône soleil jaune. Local à l'app uniquement.
 
+**Le slider de luminosité s'affiche dès que le swipe débute, indépendamment
+de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
+bloc `AnimatedVisibility` des contrôles.
+
 ### 6.4 Réglage volume (bande droite 15%)
 
 Swipe vertical → `player.volume` (0.0f–1.0f).
 Feedback : barre verticale + icône haut-parleur bleu.
+
+**Le slider de volume s'affiche dès que le swipe débute, indépendamment
+de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
+bloc `AnimatedVisibility` des contrôles.
 
 ### 6.5 Barre de progression (style Netflix)
 
@@ -276,7 +286,7 @@ Feedback : barre verticale + icône haut-parleur bleu.
 
 | Bouton | Fonction | Comportement |
 |---|---|---|
-| `[1x]` | Vitesse | `DropdownMenu` : 0.25x, 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x, 3x, 4x |
+| `[1x]` | Vitesse | `DropdownMenu` : 0.25x, 0.33x, 0.5x, 0.75x, 1x, 1.5x, 2x, 3x, 4x (FEAT-007) |
 | `[⚙]` | Réglages | `ModalBottomSheet` : piste audio, sous-titres, info décodeur |
 | `[⛶]` | Format | `DropdownMenu` avec 7 modes (voir §6.7) |
 | `[rot]` | Orientation | Cycle : Auto → Paysage → Portrait |
@@ -309,6 +319,7 @@ Mode par défaut : **Adapter**.
 | Centre | Double tap droit | +10s |
 | Centre | Swipe vertical haut | Vidéo suivante |
 | Centre | Swipe vertical bas | Vidéo précédente |
+| Centre | Swipe horizontal | Seek temporel (FEAT-008) — 100% largeur = 100s ; image vidéo mise à jour en temps réel (CLOSEST_SYNC) pendant le geste, seek exact appliqué au relâchement |
 | Centre | Pinch | Zoom/dézoom (1x–50x, continu) |
 | Bande gauche | Swipe vertical | Luminosité |
 | Bande droite | Swipe vertical | Volume |
@@ -318,8 +329,9 @@ Mode par défaut : **Adapter**.
 
 1. **Pinch** (2 doigts) a la priorité absolue.
 2. Le **zoom actif n'empêche pas le swipe** de navigation (BUG-007 — spec révisée).
-3. **Mouvement initialement horizontal** sur la zone centrale → mode seekbar,
-   annuler la détection de swipe vidéo.
+3. **Mouvement initialement horizontal** sur la zone centrale → mode **seek horizontal**
+   (FEAT-008) : vidéo en pause, indicateur affiché, seek appliqué au relâchement.
+   Annule la détection de swipe vidéo vertical.
 4. **Swipe vidéo** nécessite ≥ 80dp de déplacement + vélocité minimum.
 5. **Double tap** : fenêtre de 200ms après le premier tap.
 6. Les **taps consommés par les boutons** (ControlsOverlay) ne déclenchent pas
@@ -384,10 +396,14 @@ Désactivé automatiquement à la pause, à l'arrêt ou à la fermeture de l'app
 
 ### Icône de l'application (FEAT-004)
 
-Icône adaptative (API 26+) :
-- **Fond** : rouge `#E50914`
-- **Avant-plan** : blanc — triangle ► centré + chevron ∧ au-dessus + chevron ∨
-  en dessous (symbolise la lecture vidéo + navigation swipe verticale)
+Icône fournie par l'utilisateur (`swipePlayer_icon.png`, 1024×1024).
+
+- **Legacy** (`mipmap-*/ic_launcher.png`) : 48/72/96/144/192 px selon la densité.
+- **Round** (`mipmap-*/ic_launcher_round.png`) : même tailles, découpe circulaire.
+- **Adaptive foreground** (`drawable-*/ic_launcher_foreground.png`) : icône à 90%
+  du canvas 108dp, centré sur fond transparent.
+- **Adaptive background** (`drawable/ic_launcher_background.xml`) : couleur unie
+  `#0B2F57` (bleu marine issu du dégradé de l'icône).
 
 ### Animations
 

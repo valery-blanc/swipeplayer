@@ -3,10 +3,8 @@ package com.swipeplayer.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,26 +104,6 @@ fun ControlsOverlay(
                 onShowSettings = onShowSettings,
             )
         }
-
-        // Brightness bar (left side, visible during gesture)
-        BrightnessControl(
-            brightness = uiState.brightness.coerceAtLeast(0f),
-            visible = uiState.showBrightnessBar,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxHeight()
-                .wrapContentWidth(),
-        )
-
-        // Volume bar (right side, visible during gesture)
-        VolumeControl(
-            volume = uiState.volume,
-            visible = uiState.showVolumeBar,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .wrapContentWidth(),
-        )
 
         // Double-tap seek feedback
         DoubleTapFeedback(
