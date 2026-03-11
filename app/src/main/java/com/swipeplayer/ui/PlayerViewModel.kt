@@ -1,6 +1,7 @@
 package com.swipeplayer.ui
 
 import android.net.Uri
+import android.util.Log
 import android.view.SurfaceView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,6 +38,8 @@ import javax.inject.Inject
  *   - React to AudioFocusManager events (pause/resume/duck)
  *   - Surface error states to the UI
  */
+private const val TAG = "SwipePlayer"
+
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
@@ -94,6 +97,8 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val playlist = videoRepository.listVideosInDirectory(uri)
+                Log.d(TAG, "onIntentReceived: uri=$uri playlist.size=${playlist.size} " +
+                    "isSwipeEnabled=${playlist.size > 1}")
                 val startVideo = playlist.firstOrNull { it.uri == uri }
                     ?: videoRepository.resolveVideoFile(uri)
                     ?: playlist.first()

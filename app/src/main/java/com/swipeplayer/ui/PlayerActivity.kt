@@ -1,13 +1,21 @@
 package com.swipeplayer.ui
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +34,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "SwipePlayer"
+
 @AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
 
@@ -35,6 +45,21 @@ class PlayerActivity : ComponentActivity() {
     lateinit var audioFocusManager: AudioFocusManager
 
     private var mediaSession: MediaSession? = null
+
+    // URI waiting to be processed once permission is granted.
+    private var pendingUri: Uri? = null
+
+    // True when we sent the user to Settings for MANAGE_EXTERNAL_STORAGE.
+    private var awaitingAllFilesPermission = false
+
+    // Runtime permission launcher (must be registered before onCreate returns).
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val uri = pendingUri ?: return@registerForActivityResult
+            pendingUri = null
+            Log.d(TAG, "Media permission ${if (granted) "granted" else "denied"}")
+            viewModel.onIntentReceived(uri)  // proceed regardless (single file if denied)
+        }
 
     // Pauses playback when the screen turns off
     private val screenOffReceiver = object : BroadcastReceiver() {
@@ -99,6 +124,24 @@ class PlayerActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Retry loading the playlist if we were waiting for MANAGE_EXTERNAL_STORAGE.
+        if (awaitingAllFilesPermission) {
+            awaitingAllFilesPermission = false
+            val uri = pendingUri ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+                Log.d(TAG, "MANAGE_EXTERNAL_STORAGE granted — retrying playlist load")
+                pendingUri = null
+                viewModel.onIntentReceived(uri)
+            } else {
+                Log.w(TAG, "MANAGE_EXTERNAL_STORAGE still not granted")
+                pendingUri = null
+                viewModel.onIntentReceived(uri)
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         audioFocusManager.registerNoisyReceiver(this)
@@ -133,6 +176,43 @@ class PlayerActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val uri = intent?.data ?: return
+        Log.d(TAG, "handleIntent: uri=$uri scheme=${uri.scheme} authority=${uri.authority}")
+
+        // Step 1: ensure basic media read permission is granted.
+        val mediaPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (checkSelfPermission(mediaPermission) != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "handleIntent: requesting $mediaPermission")
+            pendingUri = uri
+            permissionLauncher.launch(mediaPermission)
+            return
+        }
+
+        // Step 2: on Android 11+, request MANAGE_EXTERNAL_STORAGE for full SD card
+        // access. Without it, File.listFiles() fails on external volumes. We request
+        // it proactively rather than waiting to discover we need it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            Log.d(TAG, "handleIntent: requesting MANAGE_EXTERNAL_STORAGE")
+            pendingUri = uri
+            awaitingAllFilesPermission = true
+            Toast.makeText(
+                this,
+                "Autorisez l'accès à tous les fichiers pour la navigation par répertoire",
+                Toast.LENGTH_LONG,
+            ).show()
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
+            )
+            return
+        }
+
+        Log.d(TAG, "handleIntent: all permissions granted")
         viewModel.onIntentReceived(uri)
     }
 }
