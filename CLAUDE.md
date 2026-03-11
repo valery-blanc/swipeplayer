@@ -41,24 +41,55 @@ dans le chat (ex : "désactive la mise en veille", "change la couleur", etc.).
 Si c'est trop petit pour un fichier BUG/FEAT dédié, au minimum mettre à jour
 `swipeplayer-specs.md` si le comportement change.
 
+### Règle de déploiement et confirmation (OBLIGATOIRE)
+
+**Aucun commit ne doit être créé avant que l'utilisateur ait testé et confirmé.**
+
+Ordre impératif pour tout bug fix ou feature :
+
+```
+[code] → [docs] → [./gradlew installDebug] → [demander test] → [attendre OK] → [commit]
+```
+
+- Le commit regroupe TOUJOURS : code source + fichiers de doc + TASKS.md
+- Si l'utilisateur signale un problème après test → corriger, re-déployer,
+  re-demander confirmation AVANT de committer
+- Aucune exception : même pour une modification d'une seule ligne
+
 ---
 
 ### Bug Fix Workflow
-1. Document the bug in `docs/bugs/BUG-XXX-short-name.md` (symptom,
-   reproduction steps, logcat, impacted spec section)
-2. Analyze root cause BEFORE writing any fix (Plan Mode)
-3. Implement fix + add regression test
-4. Update bug file status to FIXED
-5. **Mettre à jour `docs/specs/swipeplayer-specs.md`** (obligatoire, pas optionnel)
-6. Commit: "FIX BUG-XXX: short description"
+1. Documenter le bug dans `docs/bugs/BUG-XXX-short-name.md` (symptôme,
+   reproduction, logcat, section spec impactée)
+2. Analyser la cause racine AVANT d'écrire le fix (Plan Mode)
+3. Implémenter le fix
+4. Mettre à jour toute la documentation :
+   - `docs/bugs/BUG-XXX-*.md` → statut `FIXED`, fix appliqué décrit
+   - `docs/specs/swipeplayer-specs.md` (obligatoire)
+   - `docs/tasks/TASKS.md` si applicable
+5. **Déployer sur le téléphone** : `./gradlew installDebug`
+6. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
+   — NE PAS committer avant que l'utilisateur confirme que c'est OK
+7. Une fois confirmé : committer TOUS les fichiers modifiés en un seul commit
+   (code + docs + TASKS.md) : `"FIX BUG-XXX: description courte"`
 
 ### Feature Evolution Workflow
-1. Write feature spec in `docs/specs/FEAT-short-name.md` (context, behavior, technical spec, impact on existing)
-2. Analyze impact on existing code (Plan Mode) : risks and conflicts with existing, what is missing on the feature spec
-3. Break down into tasks in `docs/tasks/TASKS.md`
-4. Implement task by task, commit after each
-5. **Merge feature spec into `docs/specs/swipeplayer-specs.md`** (obligatoire à la fin)
-6. Update CLAUDE.md if architecture rules changed
+1. Écrire la spec dans `docs/specs/FEAT-XXX-short-name.md` (contexte,
+   comportement, spec technique, impact sur l'existant)
+2. Analyser l'impact sur le code existant (Plan Mode) : risques, conflits,
+   lacunes de la spec
+3. Décomposer en tâches dans `docs/tasks/TASKS.md`
+4. Implémenter
+5. Mettre à jour toute la documentation :
+   - `docs/specs/FEAT-XXX-*.md` → statut `DONE`, implémentation décrite
+   - `docs/specs/swipeplayer-specs.md` (obligatoire)
+   - `docs/tasks/TASKS.md` → toutes les cases cochées
+6. **Déployer sur le téléphone** : `./gradlew installDebug`
+7. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
+   — NE PAS committer avant que l'utilisateur confirme que c'est OK
+8. Une fois confirmé : committer TOUS les fichiers modifiés en un seul commit
+   (code + docs + TASKS.md) : `"FEAT-XXX: description courte"`
+9. Mettre à jour CLAUDE.md si des règles d'architecture ont changé
 
 
 
