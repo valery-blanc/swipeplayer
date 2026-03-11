@@ -592,11 +592,11 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 ### BUG-003 — Menu réglages se ferme immédiatement
 
 - [x] Documenter : docs/bugs/BUG-003-settings-menu-closes-immediately.md
-- [ ] Fix : ToolBar.kt — supprimer état local showSettings, ajouter paramètres
-- [ ] Fix : ControlsOverlay.kt — ajouter showSettingsSheet param, suspendre timer
-- [ ] Fix : PlayerScreen.kt — gérer showSettingsSheet, SettingsSheet hors AnimatedVisibility
-- [ ] Mettre bug à FIXED
-- [ ] Commit : FIX BUG-003
+- [x] Fix : ToolBar.kt — supprimer état local showSettings, ajouter paramètres
+- [x] Fix : ControlsOverlay.kt — ajouter showSettingsSheet param, suspendre timer
+- [x] Fix : PlayerScreen.kt — gérer showSettingsSheet, SettingsSheet hors AnimatedVisibility
+- [x] Mettre bug à FIXED
+- [x] Commit : FIX BUG-003
 
 ---
 

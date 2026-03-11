@@ -29,18 +29,22 @@ import kotlinx.coroutines.delay
  *   DoubleTapFeedback    — full-screen (visible only after double-tap)
  *
  * Auto-hide: when controls become visible a 4-second timer starts.
- * Any subsequent call to onToggleControls() resets it.
+ * The timer is suspended while [showSettingsSheet] is true so the settings
+ * bottom sheet is not closed by the auto-hide mechanism.
  */
 @Composable
 fun ControlsOverlay(
     uiState: PlayerUiState,
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
+    showSettingsSheet: Boolean,
+    onShowSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Auto-hide timer: restart whenever controlsVisible becomes true.
-    LaunchedEffect(uiState.controlsVisible) {
-        if (uiState.controlsVisible) {
+    // Auto-hide timer: restart whenever controls become visible.
+    // Suspended while the settings sheet is open.
+    LaunchedEffect(uiState.controlsVisible, showSettingsSheet) {
+        if (uiState.controlsVisible && !showSettingsSheet) {
             delay(PlayerConfig.CONTROLS_HIDE_DELAY_MS)
             viewModel.onToggleControls()
         }
@@ -91,6 +95,7 @@ fun ControlsOverlay(
                 onOrientationChange = viewModel::onOrientationChange,
                 onAudioTrackSelected = viewModel::onAudioTrackSelected,
                 onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,
+                onShowSettings = onShowSettings,
             )
         }
 

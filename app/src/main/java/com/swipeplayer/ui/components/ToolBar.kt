@@ -12,10 +12,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,10 +32,9 @@ fun ToolBar(
     onOrientationChange: () -> Unit,
     onAudioTrackSelected: (TrackInfo) -> Unit = {},
     onSubtitleTrackSelected: (TrackInfo?) -> Unit = {},
+    onShowSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showSettings by remember { mutableStateOf(false) }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -53,11 +48,12 @@ fun ToolBar(
             onSpeedSelected = onSpeedSelected,
         )
 
-        // Settings
-        IconButton(onClick = { showSettings = true }) {
+        // Settings — state is managed by the parent (ControlsOverlay/PlayerScreen)
+        // so the auto-hide timer can be suspended while the sheet is open.
+        IconButton(onClick = onShowSettings) {
             Icon(
                 imageVector = Icons.Filled.Settings,
-                contentDescription = "Réglages",
+                contentDescription = "Reglages",
                 tint = Color.White,
                 modifier = Modifier.size(22.dp),
             )
@@ -82,15 +78,5 @@ fun ToolBar(
                 modifier = Modifier.size(22.dp),
             )
         }
-    }
-
-    if (showSettings) {
-        SettingsSheet(
-            audioTracks = audioTracks,
-            subtitleTracks = subtitleTracks,
-            onAudioTrackSelected = onAudioTrackSelected,
-            onSubtitleTrackSelected = onSubtitleTrackSelected,
-            onDismiss = { showSettings = false },
-        )
     }
 }
