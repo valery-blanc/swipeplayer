@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-private val SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 3f, 4f)
+private val SPEEDS = listOf(0.25f, 0.33f, 0.5f, 0.75f, 1f, 1.5f, 2f, 3f, 4f)
 
 @Composable
 fun SpeedSelector(
