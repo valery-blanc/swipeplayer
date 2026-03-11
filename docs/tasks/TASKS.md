@@ -701,6 +701,20 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-010 — SwipePlayer absent du chooser "Ouvrir avec"
+
+- [x] Documenter : docs/bugs/BUG-010-app-absent-open-with-chooser.md
+- [x] Fix : AndroidManifest.xml — BROWSABLE + pathPattern pour 12 extensions
+
+---
+
+### FEAT-006 — Maintien de l'écran allumé pendant la lecture
+
+- [x] Spec : docs/specs/FEAT-006-keep-screen-on.md
+- [x] Impl : PlayerActivity.kt — FLAG_KEEP_SCREEN_ON via LaunchedEffect(isPlaying)
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |
