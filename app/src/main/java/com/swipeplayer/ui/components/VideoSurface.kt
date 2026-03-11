@@ -45,6 +45,9 @@ fun VideoSurface(
     displayMode: DisplayMode,
     modifier: Modifier = Modifier,
 ) {
+    // We keep the last known non-zero dimensions across player changes so there
+    // is no flash to full-screen (which looks like STRETCH) while the new
+    // player reports its video size for the first time.
     var videoWidth by remember { mutableIntStateOf(0) }
     var videoHeight by remember { mutableIntStateOf(0) }
 
@@ -52,15 +55,19 @@ fun VideoSurface(
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
-                videoWidth = videoSize.width
-                videoHeight = videoSize.height
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    videoWidth = videoSize.width
+                    videoHeight = videoSize.height
+                }
             }
         }
         player?.addListener(listener)
         // Capture immediately if the player already has a video size.
         player?.videoSize?.let { vs ->
-            videoWidth = vs.width
-            videoHeight = vs.height
+            if (vs.width > 0 && vs.height > 0) {
+                videoWidth = vs.width
+                videoHeight = vs.height
+            }
         }
         onDispose { player?.removeListener(listener) }
     }
@@ -80,19 +87,19 @@ fun VideoSurface(
             containerRatio  // fallback: treat as same ratio until size is known
         }
 
+        // Helper: compute size that FITS the given ratio inside the container (ADAPT logic).
+        fun fitSize(ratio: Float): Pair<Float, Float> =
+            if (ratio >= containerRatio) containerW to (containerW / ratio)
+            else (containerH * ratio) to containerH
+
         val surfaceModifier: Modifier = when (displayMode) {
             DisplayMode.ADAPT -> {
-                // Fit entirely inside the container, preserving ratio (letterbox / pillarbox).
-                val (w, h) = if (videoRatio >= containerRatio) {
-                    containerW to (containerW / videoRatio)
-                } else {
-                    (containerH * videoRatio) to containerH
-                }
+                val (w, h) = fitSize(videoRatio)
                 Modifier.requiredSize(w.dp, h.dp)
             }
 
             DisplayMode.FILL -> {
-                // Fill the container, preserving ratio, cropping the excess edges.
+                // Fill the container, preserving ratio, cropping excess edges.
                 val (w, h) = if (videoRatio >= containerRatio) {
                     (containerH * videoRatio) to containerH
                 } else {
@@ -102,12 +109,10 @@ fun VideoSurface(
             }
 
             DisplayMode.STRETCH -> {
-                // Fill the container ignoring the video's aspect ratio.
                 Modifier.requiredSize(containerW.dp, containerH.dp)
             }
 
             DisplayMode.NATIVE_100 -> {
-                // 1 video pixel = 1 screen pixel. May be clipped on smaller screens.
                 if (videoWidth > 0 && videoHeight > 0) {
                     with(LocalDensity.current) {
                         Modifier.requiredSize(videoWidth.toDp(), videoHeight.toDp())
@@ -115,6 +120,22 @@ fun VideoSurface(
                 } else {
                     Modifier.requiredSize(containerW.dp, containerH.dp)
                 }
+            }
+
+            // Forced aspect ratios: deform the video to fill the given ratio inside the container.
+            DisplayMode.RATIO_1_1 -> {
+                val side = minOf(containerW, containerH)
+                Modifier.requiredSize(side.dp, side.dp)
+            }
+
+            DisplayMode.RATIO_3_4 -> {
+                val (w, h) = fitSize(3f / 4f)
+                Modifier.requiredSize(w.dp, h.dp)
+            }
+
+            DisplayMode.RATIO_16_9 -> {
+                val (w, h) = fitSize(16f / 9f)
+                Modifier.requiredSize(w.dp, h.dp)
             }
         }
 

@@ -91,7 +91,7 @@ fun ControlsOverlay(
                 audioTracks = uiState.audioTracks,
                 subtitleTracks = uiState.subtitleTracks,
                 onSpeedSelected = viewModel::onSpeedChange,
-                onDisplayModeChange = viewModel::onDisplayModeChange,
+                onFormatSelected = viewModel::onDisplayModeSet,
                 onOrientationChange = viewModel::onOrientationChange,
                 onAudioTrackSelected = viewModel::onAudioTrackSelected,
                 onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,

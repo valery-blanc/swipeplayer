@@ -96,7 +96,7 @@ data class PlayerUiState(
 // Supporting types
 // ---------------------------------------------------------------------------
 
-/** Video display / scaling mode. Cycles in this order when the user taps the format button. */
+/** Video display / scaling mode. */
 enum class DisplayMode {
     /** Fit entirely inside the screen, preserving aspect ratio (letterbox / pillarbox). */
     ADAPT,
@@ -104,8 +104,14 @@ enum class DisplayMode {
     FILL,
     /** Stretch to fill the screen, ignoring aspect ratio. */
     STRETCH,
-    /** Render at native pixel size (1:1). Content may be clipped on smaller screens. */
+    /** Render at native pixel size (1:1 pixel). Content may be clipped on smaller screens. */
     NATIVE_100,
+    /** Force a 1:1 square aspect ratio, deforming the video if needed. */
+    RATIO_1_1,
+    /** Force a 3:4 portrait aspect ratio, deforming the video if needed. */
+    RATIO_3_4,
+    /** Force a 16:9 landscape aspect ratio, deforming the video if needed. */
+    RATIO_16_9,
 }
 
 /** Screen orientation lock mode. Cycles when the user taps the orientation button. */

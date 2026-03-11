@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -28,7 +27,7 @@ fun ToolBar(
     audioTracks: List<TrackInfo> = emptyList(),
     subtitleTracks: List<TrackInfo> = emptyList(),
     onSpeedSelected: (Float) -> Unit,
-    onDisplayModeChange: () -> Unit,
+    onFormatSelected: (DisplayMode) -> Unit,
     onOrientationChange: () -> Unit,
     onAudioTrackSelected: (TrackInfo) -> Unit = {},
     onSubtitleTrackSelected: (TrackInfo?) -> Unit = {},
@@ -48,8 +47,7 @@ fun ToolBar(
             onSpeedSelected = onSpeedSelected,
         )
 
-        // Settings — state is managed by the parent (ControlsOverlay/PlayerScreen)
-        // so the auto-hide timer can be suspended while the sheet is open.
+        // Settings
         IconButton(onClick = onShowSettings) {
             Icon(
                 imageVector = Icons.Filled.Settings,
@@ -59,15 +57,11 @@ fun ToolBar(
             )
         }
 
-        // Display mode
-        IconButton(onClick = onDisplayModeChange) {
-            Icon(
-                imageVector = Icons.Filled.Fullscreen,
-                contentDescription = displayMode.name,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
-        }
+        // Format — dropdown menu with all display modes
+        FormatSelector(
+            currentMode = displayMode,
+            onFormatSelected = onFormatSelected,
+        )
 
         // Orientation
         IconButton(onClick = onOrientationChange) {
