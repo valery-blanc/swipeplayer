@@ -33,8 +33,8 @@ orale) — TOUJOURS :**
    changement de comportement, toute règle révisée ou toute nouvelle fonctionnalité.
    Ne pas attendre qu'on le demande explicitement — c'est systématique.
 
-3. **Mettre à jour `docs/tasks/TASKS.md`** si la tâche implique > 3 fichiers
-   ou > 3 étapes.
+3. **Mettre à jour `docs/tasks/TASKS.md`** — toujours, sans condition :
+   ajouter l'entrée si elle n'existe pas, cocher `[x]` les étapes terminées.
 
 Cette règle s'applique MÊME pour les petites modifications demandées directement
 dans le chat (ex : "désactive la mise en veille", "change la couleur", etc.).
@@ -66,7 +66,7 @@ Ordre impératif pour tout bug fix ou feature :
 4. Mettre à jour toute la documentation :
    - `docs/bugs/BUG-XXX-*.md` → statut `FIXED`, fix appliqué décrit
    - `docs/specs/swipeplayer-specs.md` (obligatoire)
-   - `docs/tasks/TASKS.md` si applicable
+   - `docs/tasks/TASKS.md` → cocher `[x]` toutes les étapes terminées (obligatoire)
 5. **Déployer sur le téléphone** : `./gradlew installDebug`
 6. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
    — NE PAS committer avant que l'utilisateur confirme que c'est OK
@@ -83,7 +83,7 @@ Ordre impératif pour tout bug fix ou feature :
 5. Mettre à jour toute la documentation :
    - `docs/specs/FEAT-XXX-*.md` → statut `DONE`, implémentation décrite
    - `docs/specs/swipeplayer-specs.md` (obligatoire)
-   - `docs/tasks/TASKS.md` → toutes les cases cochées
+   - `docs/tasks/TASKS.md` → cocher `[x]` toutes les étapes terminées (obligatoire)
 6. **Déployer sur le téléphone** : `./gradlew installDebug`
 7. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
    — NE PAS committer avant que l'utilisateur confirme que c'est OK
