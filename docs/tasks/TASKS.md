@@ -600,6 +600,23 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-004 — Pas de swipe en mode paysage
+
+- [x] Documenter : docs/bugs/BUG-004-no-swipe-landscape.md
+- [x] Fix : GestureHandler.kt — ajouter screenWidthPx/screenHeightPx aux clés pointerInput
+- [x] Commit : FIX BUG-004
+
+---
+
+### BUG-005 — Codec non supporté : vidéo ignorée au lieu de fallback logiciel
+
+- [x] Documenter : docs/bugs/BUG-005-codec-not-supported-skip.md
+- [x] Fix : PlayerConfig.kt — setEnableDecoderFallback(true)
+- [x] Mettre bug à FIXED
+- [x] Commit : FIX BUG-005
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

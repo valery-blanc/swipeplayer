@@ -59,7 +59,7 @@ fun Modifier.gestureHandler(
     onZoom: (Float) -> Unit,
     onBrightnessDelta: (Float) -> Unit,
     onVolumeDelta: (Float) -> Unit,
-): Modifier = this.pointerInput(zoomScale, isSwipeEnabled, canSwipeDown) {
+): Modifier = this.pointerInput(zoomScale, isSwipeEnabled, canSwipeDown, screenWidthPx, screenHeightPx) {
 
     val minSwipePx = PlayerConfig.SWIPE_MIN_DP * density
     val swipeDetector = SwipeDetector(minSwipePx)
