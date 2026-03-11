@@ -1,14 +1,26 @@
 package com.swipeplayer.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,12 +29,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.swipeplayer.ui.components.ControlsOverlay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.swipeplayer.player.PlayerConfig
 import com.swipeplayer.ui.PlayerViewModel
 import com.swipeplayer.ui.components.SettingsSheet
@@ -53,6 +68,23 @@ fun PlayerScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Launcher for picking a video file when the app is opened from the launcher icon.
+    val videoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.onIntentReceived(it) }
+    }
+
+    // No video loaded and not loading → show file picker screen.
+    if (uiState.currentVideo == null && !uiState.isLoading) {
+        NoVideoScreen(
+            onPickVideo = { videoPicker.launch("video/*") },
+            modifier = modifier,
+        )
+        return
+    }
+
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -162,6 +194,51 @@ fun PlayerScreen(
                 onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,
                 onDismiss = { showSettingsSheet = false },
             )
+        }
+    }
+}
+
+/**
+ * Shown when the app is launched from the launcher icon with no video URI.
+ * Lets the user open the system file picker to choose a video.
+ */
+@Composable
+private fun NoVideoScreen(
+    onPickVideo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "SwipePlayer",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Lecteur video avec navigation par swipe",
+                color = Color(0x99FFFFFF),
+                fontSize = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(40.dp))
+            Button(
+                onClick = onPickVideo,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE50914)),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.FolderOpen,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(text = "Choisir une video", fontSize = 16.sp)
+            }
         }
     }
 }
