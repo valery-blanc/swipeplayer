@@ -101,17 +101,26 @@ fun PlayerScreen(
     // is not destroyed when the controls overlay fades out.
     var showSettingsSheet by remember { mutableStateOf(false) }
 
+    // CRO-027: flag to prevent double navigation if pagerState.currentPage fires twice
+    // (e.g. animation interrupted by a second gesture).
+    var isNavigating by remember { mutableStateOf(false) }
+
     // When the page actually changes (swipe animation completed), notify the
     // ViewModel and silently snap back to page 1.
     LaunchedEffect(pagerState.currentPage) {
+        if (isNavigating) return@LaunchedEffect
         when (pagerState.currentPage) {
             0 -> {
+                isNavigating = true
                 viewModel.onSwipeDown()
                 pagerState.scrollToPage(1)
+                isNavigating = false
             }
             2 -> {
+                isNavigating = true
                 viewModel.onSwipeUp()
                 pagerState.scrollToPage(1)
+                isNavigating = false
             }
         }
     }
@@ -125,7 +134,8 @@ fun PlayerScreen(
                 screenHeightPx = screenHeightPx,
                 zoomScale = { uiState.zoomScale },
                 isSwipeEnabled = uiState.isSwipeEnabled,
-                canSwipeDown = uiState.previousVideo != null,
+                // CRO-020: lambda so canSwipeDown is NOT a key of pointerInput
+                canSwipeDown = { uiState.previousVideo != null },
                 onSwipeUp = {
                     scope.launch { pagerState.animateScrollToPage(2) }
                 },
@@ -169,7 +179,8 @@ fun PlayerScreen(
                 if (page == 1) {
                     VideoSurface(
                         player = viewModel.currentPlayer,
-                        zoomScale = uiState.zoomScale,
+                        // CRO-004: lambda avoids recomposition of VideoSurface on zoom changes
+                        zoomScale = { uiState.zoomScale },
                         displayMode = uiState.displayMode,
                         modifier = Modifier.fillMaxSize(),
                     )

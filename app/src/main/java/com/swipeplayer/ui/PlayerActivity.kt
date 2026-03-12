@@ -9,8 +9,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -48,9 +46,6 @@ class PlayerActivity : ComponentActivity() {
 
     // URI waiting to be processed once permission is granted.
     private var pendingUri: Uri? = null
-
-    // True when we sent the user to Settings for MANAGE_EXTERNAL_STORAGE.
-    private var awaitingAllFilesPermission = false
 
     // Runtime permission launcher (must be registered before onCreate returns).
     private val permissionLauncher =
@@ -135,26 +130,20 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Retry loading the playlist if we were waiting for MANAGE_EXTERNAL_STORAGE.
-        if (awaitingAllFilesPermission) {
-            awaitingAllFilesPermission = false
-            val uri = pendingUri ?: return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
-                Log.d(TAG, "MANAGE_EXTERNAL_STORAGE granted — retrying playlist load")
-                pendingUri = null
-                viewModel.onIntentReceived(uri)
-            } else {
-                Log.w(TAG, "MANAGE_EXTERNAL_STORAGE still not granted")
-                pendingUri = null
-                viewModel.onIntentReceived(uri)
-            }
-        }
     }
 
     override fun onStart() {
         super.onStart()
         audioFocusManager.registerNoisyReceiver(this)
-        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        // CRO-030: RECEIVER_NOT_EXPORTED required on Android 14+ to avoid SecurityException
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        }
         viewModel.onActivityStart()
     }
 
@@ -169,7 +158,7 @@ class PlayerActivity : ComponentActivity() {
         super.onDestroy()
         mediaSession?.release()
         mediaSession = null
-        viewModel.onActivityDestroy()
+        // CRO-005: onActivityDestroy() removed — cleanup handled in ViewModel.onCleared()
     }
 
     // -------------------------------------------------------------------------
@@ -200,28 +189,13 @@ class PlayerActivity : ComponentActivity() {
             return
         }
 
-        // Step 2: on Android 11+, request MANAGE_EXTERNAL_STORAGE for full SD card
-        // access. Without it, File.listFiles() fails on external volumes. We request
-        // it proactively rather than waiting to discover we need it.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-            Log.d(TAG, "handleIntent: requesting MANAGE_EXTERNAL_STORAGE")
-            pendingUri = uri
-            awaitingAllFilesPermission = true
-            Toast.makeText(
-                this,
-                "Autorisez l'accès à tous les fichiers pour la navigation par répertoire",
-                Toast.LENGTH_LONG,
-            ).show()
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName"),
-                )
-            )
-            return
-        }
-
-        Log.d(TAG, "handleIntent: all permissions granted")
+        // CR-011: MANAGE_EXTERNAL_STORAGE is NOT requested proactively.
+        // VideoRepository uses a chain of fallback strategies (SAF → MediaStore →
+        // File.listFiles()). If File.listFiles() fails due to missing permission,
+        // the app falls back to single-file mode gracefully. The user can grant
+        // MANAGE_EXTERNAL_STORAGE manually via app settings if they want SD card
+        // directory listing to work.
+        Log.d(TAG, "handleIntent: permissions OK, proceeding")
         viewModel.onIntentReceived(uri)
     }
 }

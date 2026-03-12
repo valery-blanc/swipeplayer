@@ -23,3 +23,17 @@ val VIDEO_EXTENSIONS: Set<String> = setOf(
     "mp4", "mkv", "avi", "mov", "wmv", "flv",
     "webm", "m4v", "3gp", "ts", "mpg", "mpeg",
 )
+
+/** Supported external subtitle extensions (lowercase). */
+val SUBTITLE_EXTENSIONS: Set<String> = setOf("srt", "ass", "ssa")
+
+/**
+ * Represents an external subtitle file found alongside a video.
+ * [mimeType] is a Media3 MIME type constant (e.g. MimeTypes.APPLICATION_SUBRIP).
+ */
+data class SubtitleFile(
+    val uri: android.net.Uri,
+    val mimeType: String,
+    val name: String,
+    val language: String? = null,
+)

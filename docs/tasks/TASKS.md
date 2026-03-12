@@ -761,3 +761,83 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 | M10 — Final | TASK-035 | Tout |
 
 **Total : 35 tâches**
+
+---
+
+## Code Review — Corrections (docs/CODE_REVIEW.md)
+
+Session 2026-03-12. Toutes issues issues de la revue complète du projet.
+
+### Phase 1 — CRITIQUE
+
+- [x] **CR-001** `VideoPlayerManager.kt` + `PlayerViewModel.kt` — swapToNext() jamais appelé, preloading non-fonctionnel (BUG-012)
+- [x] **CR-002** `VideoPlayerManager.kt` — surface non détachée de l'ancien player avant swap (BUG-013)
+- [x] **CR-003** `PlayerViewModel.kt:556` — onSourceErrorDetected() logique défectueuse, crash potentiel (BUG-014)
+
+### Phase 2 — MAJEUR
+
+- [x] **CR-004** `VideoPlayerManager.kt:216` — erreurs nextPlayer déclenchent actions sur currentPlayer (BUG-015)
+- [x] **CR-005** `PlayerViewModel.kt:116` — ContentUriNoAccess émis pour toutes playlists à 1 vidéo (BUG-016)
+- [x] **CR-006** `PlayerConfig.kt:84` — KDoc incohérent : dit setEnableDecoderFallback(false) mais code fait true
+- [x] **CR-007** `PinchZoomHandler.kt:9` — commentaire dit "1x..4x" au lieu de 50x
+- [x] **CR-008** `SwipeDetector.kt:28` — vélocité minimum swipe non implémentée (BUG-017)
+- [x] **CR-009** `PlayerViewModel.kt` — sous-titres externes .srt/.ass/.ssa non implémentés (BUG-018)
+- [x] **CR-010** `PlayerViewModel.kt:450` — race condition lors de swipes rapides dans startPlayback() (BUG-019)
+- [x] **CR-011** `PlayerActivity.kt:206` — UX agressive : renvoi systématique vers Paramètres pour MANAGE_EXTERNAL_STORAGE (BUG-020)
+
+### Phase 3 — Documentation + Performance
+
+- [x] **CR-014** `VideoSurface.kt:148` — setVideoSurfaceView() appelé inutilement à chaque recomposition
+- [x] **CR-015** `ProgressBar.kt` — buffer progress non visualisé
+
+### Phase 4 — Mineur
+
+- [x] **CR-012** `ProgressBar.kt:39` — isDragging type ambiguë
+- [x] **CR-016** `BrightnessControl.kt` + `VolumeControl.kt` — duplication code → VerticalIndicatorBar
+- [x] **CR-017** `PlayerViewModel.kt` — logique resumeAfterSeek() dupliquée
+- [x] **CR-019** `PlaybackHistory.kt:148` — allocation IdentityHashMap à chaque pickRandom()
+- [x] **CR-020** `VideoRepository.kt` — création VideoFile dupliquée → File.toVideoFile()
+- [x] **CR-021** `PlayerViewModel.kt:545` — toast sans accents
+- [x] **CR-022** `CLAUDE.md` — liste vitesses obsolète
+- [x] **CR-023** `TopBar.kt` — shadow titre manquant
+
+---
+
+## Code Review Opus — Corrections (docs/CODE_REVIEW_OPUS.md)
+
+Session 2026-03-12. Revue independante par Opus 4.6 — 21 corrections a appliquer.
+
+### P0
+
+- [x] **CRO-005** `VideoPlayerManager.kt` + `PlayerViewModel.kt` + `PlayerActivity.kt` — Singleton.close() tue le manager definitivement
+
+### P1
+
+- [x] **CRO-001** `PlayerConfig.kt` — LoadControl n'utilise pas les valeurs de buffer
+- [x] **CRO-002** `GestureHandler.kt` — VelocityTracker recoit System.currentTimeMillis
+- [x] **CRO-006** — corrige par CRO-005
+- [x] **CRO-007** `VideoPlayerManager.kt` — SurfaceView dans Singleton = fuite Activity
+- [x] **CRO-009** `PlayerViewModel.kt` + `PlaybackHistory.kt` — race condition navigation
+- [x] **CRO-010** `PlayerViewModel.kt` — triggerPeekNext() preloads concurrents
+- [x] **CRO-012** — corrige par CRO-005
+- [x] **CRO-014** `PlayerViewModel.kt` — onUnduck() restaure volume a 1.0
+- [x] **CRO-017** `AudioFocusManager.kt` — registerReceiver sans RECEIVER_NOT_EXPORTED
+- [x] **CRO-018** `VideoPlayerManager.kt` — callbacks ExoPlayer sur playbackThread
+- [x] **CRO-020** `GestureHandler.kt` + `PlayerScreen.kt` — pointerInput recree a chaque swipe
+- [x] **CRO-023** `VideoRepository.kt` — queryMediaStoreByPath() uri.path invalide
+- [x] **CRO-027** `PlayerScreen.kt` — double navigation possible
+
+### P2
+
+- [x] **CRO-003** `PlayerViewModel.kt` — polling 500ms -> 250ms
+- [x] **CRO-004** `VideoSurface.kt` + `PlayerScreen.kt` — zoomScale en lambda
+- [x] **CRO-013** `VideoPlayerManager.kt` — HandlerThread lazy start
+- [x] **CRO-021** `GestureHandler.kt` — dead zone 8px -> 20dp
+- [x] **CRO-024** `VideoRepository.kt` — resolveViaUriPath logging
+- [x] **CRO-025** `VideoRepository.kt` — findExternalSubtitles fallback SAF
+- [x] **CRO-030** `PlayerActivity.kt` — screenOffReceiver RECEIVER_NOT_EXPORTED
+
+### P3
+
+- [x] **CRO-026** `VideoRepository.kt` — supprimer isSafUri() code mort
+- [x] **CRO-031** `VideoStateStore.kt` — cles SharedPreferences separateur ::

@@ -222,7 +222,7 @@ Add the KSP plugin to `build.gradle.kts` (root) and `app/build.gradle.kts`.
 - Progress bar color: Netflix red `#E50914`
 - All controls on semi-transparent black overlay `#80000000`
 - Timecodes in monospace, format `MM:SS` or `HH:MM:SS`
-- Speed options: 0.25x, 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x, 3x, 4x
+- Speed options: 0.25x, 0.33x, 0.5x, 0.75x, 1x, 1.5x, 2x, 3x, 4x (FEAT-007)
 - Display modes cycle: Adapt (fit) → Fill (crop) → Stretch → 100% (native)
 - Orientation cycle: Auto → Landscape → Portrait
 

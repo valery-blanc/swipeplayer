@@ -1,8 +1,7 @@
 # SwipePlayer — Spécifications Techniques Complètes
 
-> **Version** : mise à jour intégrant FEAT-001 à FEAT-008 et BUG-001 à BUG-011.
-> FEAT-004 (icône PNG utilisateur), FEAT-007 (vitesses), FEAT-008 (seek horizontal
-> temps réel), BUG-011 (sliders toujours visibles) : tous implémentés et déployés.
+> **Version** : mise à jour intégrant FEAT-001 à FEAT-008, BUG-001 à BUG-011,
+> revues de code CR-001 à CR-023, et corrections CRO-001 à CRO-031 (revue Opus 2026-03-12).
 > Pour l'historique des bugs et features, voir `docs/bugs/` et `docs/specs/FEAT-*.md`.
 
 ## 1. Vue d'ensemble du projet
@@ -134,7 +133,9 @@ val player = ExoPlayer.Builder(context)
             .setEnableDecoderFallback(true)   // Fallback SW si HW échoue (BUG-005)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     )
-    .setLoadControl(DefaultLoadControl())     // DefaultLoadControl.Builder supprimé en Media3 1.5.x
+    .setLoadControl(DefaultLoadControl.Builder()  // Buffers : 5s min / 30s max / 1s avant lecture
+        .setBufferDurationsMs(5_000, 30_000, 1_000, 2_000)
+        .build())
     .setPlaybackLooper(sharedLooper)          // Looper partagé entre les instances (requis si LoadControl partagé)
     .build()
 ```
@@ -158,8 +159,10 @@ H.264, H.265/HEVC, VP9, AV1. Conteneurs : MP4, MKV, AVI, MOV, WebM, FLV, TS, 3GP
 ### Gestion audio
 
 - Pistes audio multiples : détection et sélection possible (menu réglages).
-- Sous-titres : détection des pistes intégrées et fichiers `.srt`/`.ass`/`.ssa`
-  externes dans le même répertoire.
+- Sous-titres : détection des pistes intégrées ET fichiers `.srt`/`.ass`/`.ssa`
+  externes dans le même répertoire (même nom de base que la vidéo).
+  Les fichiers externes sont passés au `MediaItem.Builder` via `SubtitleConfiguration`
+  avant le `prepare()` de l'ExoPlayer (BUG-018).
 
 ---
 
@@ -202,14 +205,18 @@ et reset silencieux après chaque transition :
 
 ```kotlin
 val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
+var isNavigating by remember { mutableStateOf(false) }  // CRO-027 : anti double-navigation
 
 LaunchedEffect(pagerState.currentPage) {
+    if (isNavigating) return@LaunchedEffect
     when (pagerState.currentPage) {
-        0 -> { viewModel.onSwipeDown(); pagerState.scrollToPage(1) }
-        2 -> { viewModel.onSwipeUp();   pagerState.scrollToPage(1) }
+        0 -> { isNavigating = true; viewModel.onSwipeDown(); pagerState.scrollToPage(1); isNavigating = false }
+        2 -> { isNavigating = true; viewModel.onSwipeUp();   pagerState.scrollToPage(1); isNavigating = false }
     }
 }
 ```
+
+Le flag `isNavigating` empêche les doubles navigations si l'animation de page est interrompue par un second geste rapide.
 
 ### Zones de geste
 
@@ -260,6 +267,7 @@ Contrôles apparaissent/disparaissent par tap au centre.
 
 Swipe vertical → `WindowManager.LayoutParams.screenBrightness` (0.0f–1.0f).
 Feedback : barre verticale + icône soleil jaune. Local à l'app uniquement.
+**Dead zone** : 20dp minimum avant activation (évite les déclenchements accidentels).
 
 **Le slider de luminosité s'affiche dès que le swipe débute, indépendamment
 de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
@@ -269,6 +277,7 @@ bloc `AnimatedVisibility` des contrôles.
 
 Swipe vertical → `player.volume` (0.0f–1.0f).
 Feedback : barre verticale + icône haut-parleur bleu.
+**Dead zone** : 20dp minimum avant activation (même règle que la luminosité).
 
 **Le slider de volume s'affiche dès que le swipe débute, indépendamment
 de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
@@ -332,7 +341,7 @@ Mode par défaut : **Adapter**.
 3. **Mouvement initialement horizontal** sur la zone centrale → mode **seek horizontal**
    (FEAT-008) : vidéo en pause, indicateur affiché, seek appliqué au relâchement.
    Annule la détection de swipe vidéo vertical.
-4. **Swipe vidéo** nécessite ≥ 80dp de déplacement + vélocité minimum.
+4. **Swipe vidéo** nécessite ≥ 80dp de déplacement + vélocité minimum ≥ 200dp/s (BUG-017).
 5. **Double tap** : fenêtre de 200ms après le premier tap.
 6. Les **taps consommés par les boutons** (ControlsOverlay) ne déclenchent pas
    le toggle des contrôles (`awaitFirstDown(requireUnconsumed = true)`).
@@ -348,6 +357,10 @@ Vidéo courante (N)      : ExoPlayer actif, en lecture
 Vidéo suivante (peekNext): ExoPlayer prêt, première frame décodée, en pause
 Vidéo précédente        : libérée immédiatement après le swipe
 ```
+
+Au swipe, `swapToNext()` est utilisé si `nextPlayer` correspond à la vidéo cible
+(BUG-012). Sinon, un nouveau player est créé. Avant d'attacher le SurfaceView au
+nouveau player, il est détaché de l'ancien (BUG-013).
 
 ### Mémoire
 
@@ -375,8 +388,8 @@ Désactivé automatiquement à la pause, à l'arrêt ou à la fermeture de l'app
 
 - `AUDIOFOCUS_LOSS` → pause
 - `AUDIOFOCUS_LOSS_TRANSIENT` → pause, reprise à `AUDIOFOCUS_GAIN`
-- `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` → volume à 30%
-- `AUDIOFOCUS_GAIN` → reprise + restauration volume
+- `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` → volume à 30% (le volume utilisateur est sauvegardé)
+- `AUDIOFOCUS_GAIN` → reprise + restauration du volume utilisateur (pas de reset à 1.0)
 
 ---
 
@@ -487,7 +500,7 @@ Plage : **1x à 50x** (pratiquement illimité). Le zoom n'empêche pas le swipe 
 | Situation | Comportement |
 |---|---|
 | Répertoire avec 1 seule vidéo | Swipe désactivé (rebond visuel). Fin de vidéo → relecture depuis le début. |
-| Codec non supporté (HW+SW) | Toast "Codec non supporté", skip automatique après 2s |
+| Codec non supporté (HW+SW) | Toast "Codec non supporté — passage à la vidéo suivante", skip automatique après 2s |
 | Fichier supprimé entre listing et lecture | Toast, retrait de la playlist, skip |
 | content:// sans accès répertoire | Mode fichier unique, swipe désactivé, toast |
 | Vidéo > 4h | Format HH:MM:SS, aucune limitation |
@@ -511,8 +524,10 @@ Plage : **1x à 50x** (pratiquement illimité). Le zoom n'empêche pas le swipe 
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 ```
 
-`MANAGE_EXTERNAL_STORAGE` est demandé au runtime via `Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`
-si non accordé, avant le premier chargement de playlist.
+`MANAGE_EXTERNAL_STORAGE` n'est **pas** demandé proactivement au runtime (BUG-020).
+L'utilisateur peut l'accorder manuellement dans les paramètres de l'app si nécessaire
+pour le listing des cartes SD. Sans cette permission, `VideoRepository` utilise
+automatiquement les stratégies SAF → MediaStore → mode fichier unique.
 
 ---
 
@@ -541,17 +556,37 @@ si non accordé, avant le premier chargement de playlist.
    du premier pointeur. `awaitFirstDown(requireUnconsumed = true)` pour ne pas
    interférer avec les boutons de l'overlay.
 
-4. **Pinch-to-zoom** : `zoomScale` passé en `() -> Float` (lambda) dans le
-   `gestureHandler` pour ne pas être une clé du `pointerInput` — évite le
-   redémarrage du handler à chaque frame du pinch. Zoom actif (scale > 1x)
-   **n'empêche pas** le swipe de navigation.
+4. **Pinch-to-zoom** : `zoomScale` et `canSwipeDown` passés en `() -> Float` / `() -> Boolean`
+   (lambdas) dans le `gestureHandler` pour ne pas être des clés du `pointerInput` — évite
+   le redémarrage du handler (et la réinitialisation de `lastTapTimeMs`) à chaque frame
+   du pinch ou à chaque swipe. Zoom actif (scale > 1x) **n'empêche pas** le swipe de navigation.
 
 5. **Décodeur** : `setEnableDecoderFallback(true)` — fallback SW si HW échoue.
    Toast + skip uniquement si aucun décodeur disponible.
 
 6. **Looper partagé** : toutes les instances `ExoPlayer` créées avec
    `setPlaybackLooper(sharedLooper)` pour partager le même `DefaultLoadControl`
-   (requis par Media3 1.5+).
+   (requis par Media3 1.5+). Le `HandlerThread` démarre en `lazy` (première
+   création de player seulement).
+
+9. **VideoPlayerManager Singleton immortel** : `close()` supprimé. Le scope et le thread
+   du manager vivent toute la durée du processus. `releaseAll()` libère les players
+   et nullifie les callbacks dans `ViewModel.onCleared()` via
+   `runBlocking(Dispatchers.Main.immediate)` (thread-safe car `onCleared` s'exécute
+   sur le main thread). La `SurfaceView` est stockée en `WeakReference` pour éviter
+   de retenir l'Activity.
+
+10. **Navigation thread-safe** : `onSwipeUp()`, `onSwipeDown()` et `onSourceErrorDetected()`
+    utilisent un `Mutex` (`navigationMutex`) pour sérialiser les accès à `PlaybackHistory`.
+    `PlaybackHistory.peekBack()` remplace le pattern fragile `navigateBack()+navigateForward()`.
+
+11. **Callbacks ExoPlayer sur main thread** : les `Player.Listener` s'exécutent sur le
+    `playbackThread` (looper partagé). Tous les callbacks (`onPlayerError`, `onTracksChanged`,
+    `onPlaybackStateChanged`) sont dispatchés via `Handler(Looper.getMainLooper()).post { }`
+    avant d'invoquer les lambdas du ViewModel.
+
+12. **Clés SharedPreferences** : séparateur `::` dans les clés (ex: `"nom_video.mp4::pos"`)
+    pour éviter les collisions avec des fichiers dont le nom contient `_pos`, `_zoom`, etc.
 
 7. **Auto-hide des contrôles** : `LaunchedEffect` suspendu si un `DropdownMenu`
    (vitesse, format) ou le `ModalBottomSheet` (réglages) est ouvert. Le `BottomSheet`

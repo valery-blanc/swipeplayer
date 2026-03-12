@@ -3,6 +3,8 @@ package com.swipeplayer.data
 import java.util.Collections
 import java.util.IdentityHashMap
 
+
+
 /**
  * Manages the navigation history and random-pick logic for the video playlist.
  *
@@ -22,6 +24,14 @@ class PlaybackHistory {
     private var currentIndex = 0
     private var peekNextVideo: VideoFile? = null
     private var playlist: List<VideoFile> = emptyList()
+
+    /**
+     * CR-019: persistent unseen-video set maintained incrementally.
+     * Avoids rebuilding from history on every pickRandom() call.
+     * Uses identity equality (like history) for safe JVM-only unit testing.
+     */
+    private val unseenSet: MutableSet<VideoFile> =
+        Collections.newSetFromMap(IdentityHashMap())
 
     // -------------------------------------------------------------------------
     // Observable state
@@ -45,6 +55,10 @@ class PlaybackHistory {
         currentIndex = 0
         peekNextVideo = null
         playlist = fullPlaylist
+        // CR-019: rebuild unseenSet from the full playlist, excluding startVideo
+        unseenSet.clear()
+        unseenSet.addAll(fullPlaylist)
+        unseenSet.remove(startVideo)
     }
 
     // -------------------------------------------------------------------------
@@ -74,6 +88,8 @@ class PlaybackHistory {
             history.add(next)
             currentIndex = history.lastIndex
             peekNextVideo = null
+            // CR-019: mark the newly added video as seen
+            unseenSet.remove(next)
             next
         }
     }
@@ -87,6 +103,19 @@ class PlaybackHistory {
         if (!canGoBack) return null
         currentIndex--
         return history[currentIndex]
+    }
+
+    /**
+     * CRO-028: Returns the video before the current one in history WITHOUT
+     * modifying [currentIndex]. Returns null if already at the beginning.
+     *
+     * Used by [PlayerViewModel.onSwipeDown] to peek at the "previous-of-previous"
+     * video for page 0 of the VerticalPager, without the fragile
+     * navigateBack()+navigateForward() pattern.
+     */
+    fun peekBack(): VideoFile? {
+        if (!canGoBack) return null
+        return history.getOrNull(currentIndex - 1)
     }
 
     // -------------------------------------------------------------------------
@@ -135,29 +164,26 @@ class PlaybackHistory {
     // -------------------------------------------------------------------------
 
     /**
-     * Picks a random video from the unseen pool (playlist minus history).
+     * Picks a random video from [unseenSet] (maintained incrementally).
      * When all videos have been seen, resets the pool to the full playlist
      * minus the video currently playing, then picks again.
      *
      * Uses reference identity (IdentityHashMap) rather than VideoFile.equals so
      * that this method never calls into Android's Uri.hashCode/equals — which
-     * makes it safely testable in pure JVM unit tests. This is semantically
-     * correct because every VideoFile stored in [history] is a reference taken
-     * directly from [playlist]; no copies are ever created.
+     * makes it safely testable in pure JVM unit tests.
+     *
+     * CR-019: no longer rebuilds the unseen set from scratch on every call.
      */
     private fun pickRandom(): VideoFile {
-        val seen: MutableSet<VideoFile> = Collections.newSetFromMap(IdentityHashMap())
-        seen.addAll(history)
-        var candidates = playlist.filter { it !in seen }
-
-        if (candidates.isEmpty()) {
+        if (unseenSet.isEmpty()) {
             // Full cycle complete: reset pool, exclude only the current video
             val currentVideo = history.getOrNull(currentIndex)
-            candidates = playlist.filter { it !== currentVideo }
+            unseenSet.addAll(playlist)
+            if (currentVideo != null) unseenSet.remove(currentVideo)
         }
 
         // If the playlist has exactly 1 video, return it (swipe is disabled
         // upstream, but we must not crash here)
-        return candidates.randomOrNull() ?: playlist.first()
+        return unseenSet.randomOrNull() ?: playlist.first()
     }
 }

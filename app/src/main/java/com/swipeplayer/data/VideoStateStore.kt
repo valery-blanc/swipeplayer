@@ -35,18 +35,19 @@ class VideoStateStore @Inject constructor(
             durationMs > 0 && positionMs >= durationMs - 5_000L -> 0L  // near end: restart
             else                                        -> positionMs
         }
+        // CRO-031: use "::" separator to avoid key collisions for filenames containing "_pos" etc.
         prefs.edit()
-            .putLong("${filename}_pos", safePosition)
-            .putFloat("${filename}_zoom", zoom)
-            .putString("${filename}_fmt", displayMode.name)
+            .putLong("${filename}::pos", safePosition)
+            .putFloat("${filename}::zoom", zoom)
+            .putString("${filename}::fmt", displayMode.name)
             .apply()
     }
 
     fun load(filename: String): VideoState? {
-        if (!prefs.contains("${filename}_pos")) return null
-        val pos  = prefs.getLong("${filename}_pos", 0L)
-        val zoom = prefs.getFloat("${filename}_zoom", 1f)
-        val fmt  = prefs.getString("${filename}_fmt", DisplayMode.ADAPT.name)
+        if (!prefs.contains("${filename}::pos")) return null
+        val pos  = prefs.getLong("${filename}::pos", 0L)
+        val zoom = prefs.getFloat("${filename}::zoom", 1f)
+        val fmt  = prefs.getString("${filename}::fmt", DisplayMode.ADAPT.name)
             ?.let { runCatching { DisplayMode.valueOf(it) }.getOrNull() }
             ?: DisplayMode.ADAPT
         return VideoState(positionMs = pos, zoom = zoom, displayMode = fmt)

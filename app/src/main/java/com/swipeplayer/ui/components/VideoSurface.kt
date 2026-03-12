@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,7 +42,8 @@ import com.swipeplayer.ui.DisplayMode
 @Composable
 fun VideoSurface(
     player: ExoPlayer?,
-    zoomScale: Float,
+    // CRO-004: lambda avoids recomposition on every pinch frame
+    zoomScale: () -> Float,
     displayMode: DisplayMode,
     modifier: Modifier = Modifier,
 ) {
@@ -75,7 +77,12 @@ fun VideoSurface(
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .graphicsLayer { scaleX = zoomScale; scaleY = zoomScale }
+            // CRO-004: call lambda in graphicsLayer scope to skip recomposition
+            .graphicsLayer {
+                val s = zoomScale()
+                scaleX = s
+                scaleY = s
+            }
             .clipToBounds(),
     ) {
         val containerW = maxWidth.value   // dp
@@ -139,14 +146,26 @@ fun VideoSurface(
             }
         }
 
+        // CR-014: track the previously attached player to avoid calling
+        // setVideoSurfaceView on every recomposition (would cause a flash).
+        // The factory captures the initial player; update only re-attaches
+        // when the player instance actually changes.
+        var attachedPlayer by remember { mutableStateOf<androidx.media3.exoplayer.ExoPlayer?>(null) }
+
         androidx.compose.ui.viewinterop.AndroidView(
             factory = { ctx ->
                 SurfaceView(ctx).also { sv ->
                     player?.setVideoSurfaceView(sv)
+                    attachedPlayer = player
                 }
             },
             update = { sv ->
-                player?.setVideoSurfaceView(sv)
+                if (player !== attachedPlayer) {
+                    // Detach from old player before attaching to new one
+                    attachedPlayer?.clearVideoSurfaceView(sv)
+                    player?.setVideoSurfaceView(sv)
+                    attachedPlayer = player
+                }
             },
             modifier = surfaceModifier,
         )

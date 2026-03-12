@@ -1,7 +1,9 @@
 package com.swipeplayer.player
 
 import android.content.Context
+import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -11,17 +13,18 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.swipeplayer.data.SubtitleFile
 import com.swipeplayer.data.VideoFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,8 +40,11 @@ import javax.inject.Singleton
  * Usage pattern:
  *   1. preparePlayer(video, preloadOnly=false) -> current player starts playing
  *   2. preloadNext(nextVideo)                 -> next player buffers in background
- *   3. swapToNext(surfaceView)                -> on swipe: next becomes current
- *   4. releaseAll()                           -> on destroy
+ *   3. swapToNext()                           -> on swipe: next becomes current
+ *   4. releaseAll()                           -> on ViewModel.onCleared()
+ *
+ * This is a @Singleton and lives for the entire process lifetime.
+ * Do NOT call close() — the scope and thread must remain alive.
  */
 @Singleton
 class VideoPlayerManager @Inject constructor(
@@ -50,6 +56,20 @@ class VideoPlayerManager @Inject constructor(
 
     var nextPlayer: ExoPlayer? = null
         private set
+
+    /** Video currently loaded in [nextPlayer]; null if no preload is active. */
+    var nextPlayerVideo: VideoFile? = null
+        private set
+
+    /**
+     * Weak reference to the SurfaceView currently attached to [currentPlayer].
+     * WeakReference prevents Activity leaks since this singleton outlives Activities.
+     * Stored by [attachSurface] so [swapToNext] can detach/reattach without
+     * needing the caller to pass it again.
+     * CRO-007: using WeakReference<SurfaceView> to avoid Activity leak via Singleton.
+     */
+    private var currentSurfaceRef: WeakReference<SurfaceView>? = null
+    val currentSurfaceView: SurfaceView? get() = currentSurfaceRef?.get()
 
     /** Called when the current player's hardware decoder fails to initialise. */
     var onCodecFailure: (() -> Unit)? = null
@@ -69,10 +89,16 @@ class VideoPlayerManager @Inject constructor(
 
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    // CRO-018: dispatch ExoPlayer callbacks to the main thread
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    // CRO-013: lazy start — thread only starts when first player is created
     // Shared background thread for all ExoPlayer instances.
     // ExoPlayer requires that all players sharing the same LoadControl also share
     // the same playback looper — this thread provides that shared looper.
-    private val playbackThread = HandlerThread("SwipePlayer-Playback").also { it.start() }
+    private val playbackThread by lazy {
+        HandlerThread("SwipePlayer-Playback").also { it.start() }
+    }
 
     // -------------------------------------------------------------------------
     // Player creation
@@ -97,15 +123,29 @@ class VideoPlayerManager @Inject constructor(
      * NOT set to play — it stays paused, ready for an instant swap.
      * If false the player starts playing immediately.
      *
+     * [subtitleFiles] are external subtitle files (.srt/.ass/.ssa) to include
+     * in the media item so ExoPlayer can render them alongside the video.
+     *
      * Must be called from a coroutine; switches to Main dispatcher internally.
      */
-    suspend fun preparePlayer(video: VideoFile, preloadOnly: Boolean = false): ExoPlayer =
+    suspend fun preparePlayer(
+        video: VideoFile,
+        preloadOnly: Boolean = false,
+        subtitleFiles: List<SubtitleFile> = emptyList(),
+    ): ExoPlayer =
         withContext(Dispatchers.Main) {
             val player = createExoPlayer()
             player.addListener(buildListener(player))
+            val subtitleConfigs = subtitleFiles.map { sub ->
+                MediaItem.SubtitleConfiguration.Builder(sub.uri)
+                    .setMimeType(sub.mimeType)
+                    .apply { if (sub.language != null) setLanguage(sub.language) }
+                    .build()
+            }
             val mediaItem = MediaItem.Builder()
                 .setUri(video.uri)
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(video.name).build())
+                .setSubtitleConfigurations(subtitleConfigs)
                 .build()
             player.setMediaItem(mediaItem)
             player.playWhenReady = !preloadOnly
@@ -120,44 +160,61 @@ class VideoPlayerManager @Inject constructor(
     /**
      * Buffers [video] into [nextPlayer] so it is ready before the user swipes.
      * Releases any previously pre-loaded player first.
+     *
+     * [subtitleFiles] are forwarded to [preparePlayer] so the pre-loaded player
+     * already has subtitle tracks configured when it becomes current.
      */
-    suspend fun preloadNext(video: VideoFile) {
+    suspend fun preloadNext(video: VideoFile, subtitleFiles: List<SubtitleFile> = emptyList()) {
         val old = nextPlayer
         nextPlayer = null
+        nextPlayerVideo = null
         old?.let { releasePlayer(it, surfaceView = null) }
-        nextPlayer = preparePlayer(video, preloadOnly = true)
+        nextPlayer = preparePlayer(video, preloadOnly = true, subtitleFiles = subtitleFiles)
+        nextPlayerVideo = video
     }
 
     /**
-     * Swaps [nextPlayer] into [currentPlayer]:
-     *   1. Attaches [surfaceView] to the next player and starts playback.
-     *   2. Replaces currentPlayer reference.
-     *   3. Releases the old current player asynchronously (no surface leak).
+     * Swaps [nextPlayer] into [currentPlayer] using the stored [currentSurfaceView]:
+     *   1. Detaches the surface from the old player (prevents double-render).
+     *   2. Attaches the surface to the next player and starts playback.
+     *   3. Replaces currentPlayer reference and updates [currentPlayerState].
+     *   4. Releases the old current player asynchronously.
      *
-     * No-op if [nextPlayer] is null.
+     * Returns true if the swap was performed, false if [nextPlayer] or
+     * [currentSurfaceView] is null (WeakReference was GC'd).
      */
-    fun swapToNext(surfaceView: SurfaceView) {
-        val newCurrent = nextPlayer ?: return
+    fun swapToNext(): Boolean {
+        val sv = currentSurfaceView ?: return false
+        val newCurrent = nextPlayer ?: return false
         val oldCurrent = currentPlayer
 
-        attachSurface(newCurrent, surfaceView)
+        oldCurrent?.clearVideoSurfaceView(sv)
+
+        newCurrent.setVideoSurfaceView(sv)
         newCurrent.play()
 
         currentPlayer = newCurrent
+        _currentPlayerState.value = newCurrent
         nextPlayer = null
+        nextPlayerVideo = null
 
         if (oldCurrent != null) {
             managerScope.launch {
                 releasePlayer(oldCurrent, surfaceView = null)
             }
         }
+        return true
     }
 
     /**
      * Attaches [surfaceView] to [player] for video rendering.
+     * Stores a WeakReference to the surface so [swapToNext] can detach/reattach
+     * without needing the caller to pass it again.
      * Must be called on the main thread.
      */
     fun attachSurface(player: ExoPlayer, surfaceView: SurfaceView) {
+        // CRO-007: WeakReference prevents retaining the Activity via its SurfaceView
+        currentSurfaceRef = WeakReference(surfaceView)
         player.setVideoSurfaceView(surfaceView)
     }
 
@@ -187,44 +244,62 @@ class VideoPlayerManager @Inject constructor(
         }
 
     /**
-     * Releases both [currentPlayer] and [nextPlayer].
+     * Releases both [currentPlayer] and [nextPlayer] and clears all callbacks.
      * Safe to call even if one or both are null.
-     * Also cancels the internal manager scope.
+     * Called from ViewModel.onCleared() — the Singleton scope and thread remain alive.
+     *
+     * CRO-005: close() has been removed. This Singleton must not cancel its scope
+     * or stop its thread — they must live for the entire process lifetime.
      */
     suspend fun releaseAll() {
         val c = currentPlayer
         val n = nextPlayer
         currentPlayer = null
         nextPlayer = null
+        nextPlayerVideo = null
+        currentSurfaceRef = null
+        _currentPlayerState.value = null
+        // CRO-012: null callbacks so the Singleton does not retain the ViewModel
+        onCodecFailure = null
+        onSourceError = null
+        onTracksChanged = null
+        onPlaybackEnded = null
 
         c?.let { releasePlayer(it, surfaceView = null) }
         n?.let { releasePlayer(it, surfaceView = null) }
-    }
-
-    /** Cancels internal scope and stops the shared playback thread. */
-    fun close() {
-        managerScope.cancel()
-        playbackThread.quitSafely()
     }
 
     // -------------------------------------------------------------------------
     // Error handling
     // -------------------------------------------------------------------------
 
+    /**
+     * CRO-018: All listener callbacks are dispatched to the main thread via
+     * [mainHandler]. ExoPlayer invokes listeners on [playbackThread] (the looper
+     * passed to setPlaybackLooper), not the main thread. Dispatching to main
+     * ensures all callback handlers run on the correct thread.
+     */
     private fun buildListener(player: ExoPlayer): Player.Listener =
         object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                when {
-                    isCodecInitFailure(error) -> onCodecFailure?.invoke()
-                    isSourceError(error)      -> onSourceError?.invoke()
+                mainHandler.post {
+                    if (player !== currentPlayer) return@post
+                    when {
+                        isCodecInitFailure(error) -> onCodecFailure?.invoke()
+                        isSourceError(error)      -> onSourceError?.invoke()
+                    }
                 }
             }
             override fun onTracksChanged(tracks: Tracks) {
-                if (player === currentPlayer) onTracksChanged?.invoke(tracks)
+                mainHandler.post {
+                    if (player === currentPlayer) onTracksChanged?.invoke(tracks)
+                }
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED && player === currentPlayer) {
-                    onPlaybackEnded?.invoke()
+                mainHandler.post {
+                    if (playbackState == Player.STATE_ENDED && player === currentPlayer) {
+                        onPlaybackEnded?.invoke()
+                    }
                 }
             }
         }

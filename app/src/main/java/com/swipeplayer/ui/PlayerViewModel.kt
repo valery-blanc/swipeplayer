@@ -20,6 +20,8 @@ import com.swipeplayer.player.VideoPlayerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -80,11 +82,28 @@ class PlayerViewModel @Inject constructor(
     /** Double-tap feedback clear job. */
     private var clearDoubleTapJob: Job? = null
 
+    /** CRO-010: pending preload job; cancelled before each new preload to avoid races. */
+    private var peekJob: Job? = null
+
+    /**
+     * CRO-009: serializes all history navigation operations.
+     * PlaybackHistory is not thread-safe; rapid swipes can interleave at suspend
+     * points in startPlayback(). The mutex ensures only one navigation runs at a time.
+     */
+    private val navigationMutex = Mutex()
+
     /** Position captured at the start of a horizontal seek gesture. */
     private var seekStartPositionMs = 0L
 
     /** Whether the player was playing before a horizontal seek gesture paused it. */
     private var wasPlayingBeforeHorizontalSeek = false
+
+    /**
+     * CR-010: generation counter for startPlayback().
+     * Incremented at the start of each call; checked after each suspend point.
+     * If the value has changed, a newer call has superseded this one — abort.
+     */
+    private var playbackStartToken = 0
 
     init {
         audioFocusManager.listener = this
@@ -113,10 +132,12 @@ class PlayerViewModel @Inject constructor(
                     ?: videoRepository.resolveVideoFile(uri)
                     ?: playlist.first()
 
-                val singleFileMode = playlist.size == 1 ||
-                    (playlist.size == 1 && playlist.first().uri == uri &&
-                        !videoRepository.isMediaStoreUri(uri) &&
-                        !videoRepository.isSafUri(uri))
+                // CR-005: ContentUriNoAccess only when the repository returned the
+                // original URI unchanged (= buildFallbackVideoFile fallback), meaning
+                // no listing strategy succeeded. A legitimate 1-video directory returns
+                // a VideoFile built from the actual file, which has a different URI.
+                val isSingleFileFallback = playlist.size == 1 &&
+                    playlist.first().uri == uri
 
                 history.init(startVideo, playlist)
 
@@ -127,8 +148,7 @@ class PlayerViewModel @Inject constructor(
                         previousVideo = null,
                         isSwipeEnabled = playlist.size > 1,
                         isLoading = false,
-                        error = if (singleFileMode && playlist.size == 1)
-                            PlayerError.ContentUriNoAccess else null,
+                        error = if (isSingleFileFallback) PlayerError.ContentUriNoAccess else null,
                     )
                 }
 
@@ -151,36 +171,38 @@ class PlayerViewModel @Inject constructor(
     /**
      * Swipe up: advance to the next video.
      * Uses the pre-selected peek if available, otherwise picks a new random video.
+     * CRO-009: wrapped in navigationMutex to prevent PlaybackHistory corruption.
      */
     fun onSwipeUp() {
         if (!_uiState.value.isSwipeEnabled) return
         viewModelScope.launch {
-            history.current?.let { saveCurrentState(it) }
-            val previous = history.current
-            val next = history.navigateForward()
-            switchToVideo(next, previousVideo = previous)
+            navigationMutex.withLock {
+                history.current?.let { saveCurrentState(it) }
+                val previous = history.current
+                val next = history.navigateForward()
+                switchToVideo(next, previousVideo = previous)
+            }
         }
     }
 
     /**
      * Swipe down: go back in history.
      * No-op at the start of history (UI shows a bounce animation instead).
+     * CRO-009: wrapped in navigationMutex to prevent PlaybackHistory corruption.
+     * CRO-028: uses peekBack() instead of navigateBack()+navigateForward() pattern.
      */
     fun onSwipeDown() {
         if (!_uiState.value.isSwipeEnabled) return
         viewModelScope.launch {
-            val prev = history.navigateBack() ?: return@launch
-            // Peek at the video before prev (for page 0 in the pager) without
-            // permanently moving the history pointer.
-            val beforePrev: VideoFile? = if (history.canGoBack) {
-                val tmp = history.navigateBack()!!
-                history.navigateForward()
-                tmp
-            } else null
-            _uiState.update {
-                it.copy(currentVideo = prev, previousVideo = beforePrev)
+            navigationMutex.withLock {
+                val prev = history.navigateBack() ?: return@withLock
+                // CRO-028: peekBack() returns the video before prev without modifying index
+                val beforePrev = history.peekBack()
+                _uiState.update {
+                    it.copy(currentVideo = prev, previousVideo = beforePrev)
+                }
+                startPlayback(prev)
             }
-            startPlayback(prev)
         }
     }
 
@@ -350,19 +372,21 @@ class PlayerViewModel @Inject constructor(
                 horizontalSeekDeltaMs = 0L,
             )
         }
-        if (wasPlayingBeforeHorizontalSeek) {
-            player?.play()
-            startPositionPolling()
-            _uiState.update { it.copy(isPlaying = true) }
-        }
+        resumeAfterSeek(player)
     }
 
     /** Called when the gesture is interrupted (e.g. pinch starts); no additional seek. */
     fun onHorizontalSeekCancel() {
-        playerManager.currentPlayer?.setSeekParameters(SeekParameters.EXACT)
+        val player = playerManager.currentPlayer
+        player?.setSeekParameters(SeekParameters.EXACT)
         _uiState.update { it.copy(isSeekingHorizontally = false, horizontalSeekDeltaMs = 0L) }
+        resumeAfterSeek(player)
+    }
+
+    // CR-017: extracted common resume logic shared by onHorizontalSeekEnd and onHorizontalSeekCancel
+    private fun resumeAfterSeek(player: androidx.media3.exoplayer.ExoPlayer?) {
         if (wasPlayingBeforeHorizontalSeek) {
-            playerManager.currentPlayer?.play()
+            player?.play()
             startPositionPolling()
             _uiState.update { it.copy(isPlaying = true) }
         }
@@ -394,12 +418,19 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(isPlaying = true) }
     }
 
+    /** CRO-014: volume before ducking; restored on unduck to preserve user preference. */
+    private var preDuckVolume = 1.0f
+
     override fun onDuck() {
+        // CRO-014: save current volume so unduck can restore it
+        preDuckVolume = _uiState.value.volume
         playerManager.currentPlayer?.volume = 0.3f
     }
 
     override fun onUnduck() {
-        playerManager.currentPlayer?.volume = 1.0f
+        // CRO-014: restore user's volume instead of hardcoding 1.0f
+        playerManager.currentPlayer?.volume = preDuckVolume
+        _uiState.update { it.copy(volume = preDuckVolume) }
     }
 
     // -------------------------------------------------------------------------
@@ -417,13 +448,6 @@ class PlayerViewModel @Inject constructor(
             audioFocusManager.abandonFocus()
             stopPositionPolling()
             _uiState.update { it.copy(isPlaying = false) }
-        }
-    }
-
-    fun onActivityDestroy() {
-        viewModelScope.launch {
-            playerManager.releaseAll()
-            playerManager.close()
         }
     }
 
@@ -448,27 +472,43 @@ class PlayerViewModel @Inject constructor(
     // -------------------------------------------------------------------------
 
     private suspend fun startPlayback(video: VideoFile) {
+        // CR-010: generation counter — abort if a newer startPlayback() has started
+        val token = ++playbackStartToken
+
         // Load persisted state before starting (zoom + displayMode + position).
         val saved = videoStateStore.load(video.name)
         if (saved != null) {
-            _uiState.update {
-                it.copy(zoomScale = saved.zoom, displayMode = saved.displayMode)
-            }
+            _uiState.update { it.copy(zoomScale = saved.zoom, displayMode = saved.displayMode) }
         } else {
-            _uiState.update {
-                it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT)
-            }
+            _uiState.update { it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT) }
         }
 
-        val oldPlayer = playerManager.currentPlayer
-        val newPlayer = playerManager.preparePlayer(video, preloadOnly = false)
-        oldPlayer?.let {
-            if (it !== newPlayer) viewModelScope.launch { playerManager.releasePlayer(it, null) }
+        // CR-001: use pre-loaded nextPlayer if it matches the target video
+        val swapped = playerManager.nextPlayerVideo?.uri == video.uri && playerManager.swapToNext()
+
+        if (!swapped) {
+            // CR-009: find external subtitle files to include in the media item
+            val subtitleFiles = videoRepository.findExternalSubtitles(video)
+            val oldPlayer = playerManager.currentPlayer
+            val newPlayer = playerManager.preparePlayer(
+                video,
+                preloadOnly = false,
+                subtitleFiles = subtitleFiles,
+            )
+            // CR-010: if a newer startPlayback() superseded us, release and abort
+            if (token != playbackStartToken) {
+                viewModelScope.launch { playerManager.releasePlayer(newPlayer, null) }
+                return
+            }
+            oldPlayer?.let {
+                if (it !== newPlayer) viewModelScope.launch { playerManager.releasePlayer(it, null) }
+            }
         }
 
         // Seek to saved position after prepare
+        val player = playerManager.currentPlayer ?: return
         if (saved != null && saved.positionMs > 0L) {
-            newPlayer.seekTo(saved.positionMs)
+            player.seekTo(saved.positionMs)
         }
 
         triggerPeekNext()
@@ -503,9 +543,12 @@ class PlayerViewModel @Inject constructor(
     private fun triggerPeekNext() {
         val playlist = _uiState.value.playlist
         if (playlist.size <= 1) return
-        viewModelScope.launch {
+        // CRO-010: cancel any previous preload job before starting a new one
+        peekJob?.cancel()
+        peekJob = viewModelScope.launch {
             val next = history.peekNext()
-            playerManager.preloadNext(next)
+            val subtitleFiles = videoRepository.findExternalSubtitles(next)
+            playerManager.preloadNext(next, subtitleFiles)
         }
     }
 
@@ -525,7 +568,8 @@ class PlayerViewModel @Inject constructor(
                         )
                     }
                 }
-                delay(500L)
+                // CRO-003: 250ms for smoother timecode display (was 500ms)
+                delay(250L)
             }
         }
     }
@@ -541,8 +585,9 @@ class PlayerViewModel @Inject constructor(
     // -------------------------------------------------------------------------
 
     private fun onCodecFailureDetected() {
+        // CR-021: message avec accents correct
         viewModelScope.launch {
-            _toastEvents.emit("Codec non supporte - passage a la video suivante")
+            _toastEvents.emit("Codec non support\u00e9 \u2014 passage \u00e0 la vid\u00e9o suivante")
         }
         _uiState.update { it.copy(error = PlayerError.CodecNotSupported) }
         codecSkipJob?.cancel()
@@ -553,22 +598,36 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    // CRO-009: also wrapped in navigationMutex
     private fun onSourceErrorDetected() {
         val current = history.current ?: return
         viewModelScope.launch {
+            navigationMutex.withLock {
             _toastEvents.emit("Fichier introuvable : ${current.name}")
-            // Remove from playlist and skip
+
             val newPlaylist = _uiState.value.playlist.filter { it !== current }
             _uiState.update { it.copy(playlist = newPlaylist) }
-            history.init(
-                history.navigateForward().let { history.current ?: return@launch },
-                newPlaylist,
-            )
+
             if (newPlaylist.isEmpty()) {
                 _uiState.update { it.copy(error = PlayerError.FileNotFound) }
-            } else {
-                history.current?.let { next -> startPlayback(next) }
+                return@launch
             }
+
+            // Pick next video from the new (smaller) playlist
+            val nextVideo = newPlaylist.firstOrNull { it !== current } ?: newPlaylist.first()
+
+            // Re-initialise history with the clean playlist
+            history.init(nextVideo, newPlaylist)
+            _uiState.update {
+                it.copy(
+                    currentVideo = nextVideo,
+                    previousVideo = null,
+                    isSwipeEnabled = newPlaylist.size > 1,
+                    error = null,
+                )
+            }
+            startPlayback(nextVideo)
+            } // end navigationMutex.withLock
         }
     }
 
@@ -654,11 +713,15 @@ class PlayerViewModel @Inject constructor(
         hideBrightnessBarJob?.cancel()
         hideVolumeBarJob?.cancel()
         clearDoubleTapJob?.cancel()
+        peekJob?.cancel()
         audioFocusManager.listener = null
-        playerManager.onCodecFailure = null
-        playerManager.onSourceError = null
-        playerManager.onTracksChanged = null
-        playerManager.onPlaybackEnded = null
-        playerManager.close()
+        // CRO-005: releaseAll() nullifies all callbacks and releases players.
+        // runBlocking(Dispatchers.Main.immediate) executes synchronously since
+        // onCleared() is always called on the main thread — no deadlock possible.
+        // close() is NOT called: VideoPlayerManager is @Singleton and its scope
+        // and thread must live for the entire process lifetime.
+        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            playerManager.releaseAll()
+        }
     }
 }

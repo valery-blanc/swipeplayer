@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import androidx.media3.common.MimeTypes
 import com.swipeplayer.util.sortedNaturally
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -70,14 +71,20 @@ class VideoRepository @Inject constructor(
 
     fun isMediaStoreUri(uri: Uri): Boolean =
         uri.authority?.equals("media", ignoreCase = true) == true
-
-    fun isSafUri(uri: Uri): Boolean =
-        uri.authority?.contains("documents", ignoreCase = true) == true ||
-            uri.authority?.contains("com.android.externalstorage", ignoreCase = true) == true
+    // CRO-026: isSafUri() removed — it was dead code (never called) with fragile heuristics
 
     // -------------------------------------------------------------------------
     // Listing strategies
     // -------------------------------------------------------------------------
+
+    // CR-020: shared helper — builds a VideoFile from a filesystem File
+    private fun File.toVideoFile(): VideoFile = VideoFile(
+        uri      = Uri.fromFile(this),
+        name     = name,
+        path     = absolutePath,
+        duration = -1L,
+        size     = length(),
+    )
 
     private suspend fun listViaFile(uri: Uri): List<VideoFile> =
         withContext(Dispatchers.IO) {
@@ -85,15 +92,7 @@ class VideoRepository @Inject constructor(
             val parent = file.parentFile ?: return@withContext emptyList()
             parent.listFiles()
                 ?.filter { it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS }
-                ?.map { f ->
-                    VideoFile(
-                        uri = Uri.fromFile(f),
-                        name = f.name,
-                        path = f.absolutePath,
-                        duration = -1L,
-                        size = f.length(),
-                    )
-                }
+                ?.map { it.toVideoFile() }
                 ?.sortedNaturally()
                 ?: emptyList()
         }
@@ -219,10 +218,48 @@ class VideoRepository @Inject constructor(
      * For SD cards: RELATIVE_PATH is relative to the SD card root, e.g.
      *   /storage/3035-6338/Movies/hh/  ->  RELATIVE_PATH = "Movies/hh/"
      */
+    /**
+     * CRO-023: Resolves the parent directory path from a URI.
+     * Strategy 1: query the DATA column from MediaStore (works for media:// URIs and
+     * some FileProvider URIs that expose the underlying file path).
+     * Strategy 2: use uri.path directly only if it resolves to an existing directory
+     * (some FileProvider URIs like Xiaomi embed the real path in the URI path segment).
+     * Returns null if no real filesystem path can be determined.
+     */
+    private fun resolveParentPath(uri: Uri): String? {
+        // Strategy 1: query DATA column (most reliable for content:// URIs)
+        runCatching {
+            contentResolver.query(
+                uri,
+                arrayOf(MediaStore.Video.Media.DATA),
+                null, null, null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataCol = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
+                    if (dataCol >= 0) {
+                        val data = cursor.getString(dataCol)
+                        if (!data.isNullOrBlank()) {
+                            val parent = File(data).parent
+                            if (parent != null && File(parent).exists()) return parent
+                        }
+                    }
+                }
+            }
+        }
+        // Strategy 2: try uri.path only if the resulting directory actually exists
+        val path = uri.path ?: return null
+        val parent = File(path).parent ?: return null
+        return if (File(parent).exists()) parent else null
+    }
+
     private suspend fun queryMediaStoreByPath(uri: Uri): List<VideoFile> =
         withContext(Dispatchers.IO) {
-            val path = uri.path ?: return@withContext emptyList()
-            val parentPath = File(path).parent ?: return@withContext emptyList()
+            // CRO-023: use resolveParentPath() instead of uri.path directly
+            val parentPath = resolveParentPath(uri)
+            if (parentPath == null) {
+                Log.d(TAG, "queryMediaStoreByPath: cannot resolve parent path for $uri")
+                return@withContext emptyList()
+            }
             Log.d(TAG, "queryMediaStoreByPath: parentPath=$parentPath")
 
             val result = mutableListOf<VideoFile>()
@@ -300,30 +337,101 @@ class VideoRepository @Inject constructor(
             }
         }
 
-    /** Best-effort: reads the file system path embedded in FileProvider-style URIs. */
+    /**
+     * Best-effort: reads the file system path embedded in FileProvider-style URIs.
+     * CRO-024: guards against non-existent directories (common for SAF-encoded paths).
+     */
     private suspend fun resolveViaUriPath(uri: Uri): List<VideoFile> =
         withContext(Dispatchers.IO) {
             try {
                 val path = uri.path ?: return@withContext emptyList()
                 val parent = File(path).parentFile ?: return@withContext emptyList()
-                Log.d(TAG, "resolveViaUriPath: parent=${parent.path} exists=${parent.exists()}")
+                if (!parent.exists()) {
+                    Log.d(TAG, "resolveViaUriPath: parent=${parent.path} does not exist, skipping")
+                    return@withContext emptyList()
+                }
+                Log.d(TAG, "resolveViaUriPath: parent=${parent.path} exists=true")
                 parent.listFiles()
                     ?.filter { it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS }
-                    ?.map { f ->
-                        VideoFile(
-                            uri      = Uri.fromFile(f),
-                            name     = f.name,
-                            path     = f.absolutePath,
-                            duration = -1L,
-                            size     = f.length(),
-                        )
-                    }
+                    ?.map { it.toVideoFile() }
                     ?.sortedNaturally()
                     ?: emptyList()
             } catch (_: Exception) {
                 emptyList()
             }
         }
+
+    // -------------------------------------------------------------------------
+    // External subtitle detection (CR-009 / BUG-018)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Scans the directory of [video] for external subtitle files (.srt/.ass/.ssa)
+     * whose base name matches the video's base name.
+     *
+     * CRO-025: two strategies:
+     *   1. Filesystem path (works for file:// URIs and content:// with known path)
+     *   2. SAF DocumentFile (works for content:// URIs where path is not accessible)
+     *
+     * Returns a list of [SubtitleFile] ready to be added to a MediaItem.
+     */
+    suspend fun findExternalSubtitles(video: VideoFile): List<SubtitleFile> =
+        withContext(Dispatchers.IO) {
+            // Strategy 1: filesystem path
+            if (video.path.isNotBlank()) {
+                val result = findSubtitlesViaFilesystem(video.path)
+                if (result.isNotEmpty()) return@withContext result
+            }
+            // Strategy 2: SAF fallback for pure content:// URIs
+            findSubtitlesViaSaf(video)
+        }
+
+    private fun findSubtitlesViaFilesystem(videoPath: String): List<SubtitleFile> {
+        val videoFile = File(videoPath)
+        val baseName = videoFile.nameWithoutExtension
+        val parent = videoFile.parentFile ?: return emptyList()
+        return parent.listFiles()
+            ?.filter { f ->
+                f.isFile &&
+                    f.extension.lowercase() in SUBTITLE_EXTENSIONS &&
+                    f.nameWithoutExtension.equals(baseName, ignoreCase = true)
+            }
+            ?.mapNotNull { f ->
+                val mimeType = when (f.extension.lowercase()) {
+                    "srt"        -> MimeTypes.APPLICATION_SUBRIP
+                    "ass", "ssa" -> MimeTypes.TEXT_SSA
+                    else         -> return@mapNotNull null
+                }
+                SubtitleFile(uri = Uri.fromFile(f), mimeType = mimeType, name = f.name)
+            }
+            ?: emptyList()
+    }
+
+    private fun findSubtitlesViaSaf(video: VideoFile): List<SubtitleFile> {
+        return try {
+            val doc = DocumentFile.fromSingleUri(context, video.uri) ?: return emptyList()
+            val parent = doc.parentFile ?: return emptyList()
+            val baseName = video.name.substringBeforeLast('.')
+            parent.listFiles()
+                .filter { f ->
+                    f.isFile &&
+                        f.name?.substringAfterLast('.', "")?.lowercase() in SUBTITLE_EXTENSIONS &&
+                        f.name?.substringBeforeLast('.', "").equals(baseName, ignoreCase = true)
+                }
+                .mapNotNull { f ->
+                    val ext = f.name?.substringAfterLast('.', "")?.lowercase()
+                        ?: return@mapNotNull null
+                    val mimeType = when (ext) {
+                        "srt"        -> MimeTypes.APPLICATION_SUBRIP
+                        "ass", "ssa" -> MimeTypes.TEXT_SSA
+                        else         -> return@mapNotNull null
+                    }
+                    SubtitleFile(uri = f.uri, mimeType = mimeType, name = f.name ?: "")
+                }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Helpers

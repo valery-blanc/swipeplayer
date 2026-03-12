@@ -82,9 +82,12 @@ object PlayerConfig {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns a [DefaultRenderersFactory] configured for HW+ mode:
-     *   - setEnableDecoderFallback(false) — no software fallback
-     *   - EXTENSION_RENDERER_MODE_OFF    — no extension renderers
+     * Returns a [DefaultRenderersFactory] configured for hardware-accelerated decoding:
+     *   - setEnableDecoderFallback(true)  — fall back to SW decoder if HW fails (BUG-005)
+     *   - EXTENSION_RENDERER_MODE_OFF     — no extension renderers
+     *
+     * If both HW and SW decoders fail, [VideoPlayerManager] surfaces a codec error
+     * via [onCodecFailure] and the ViewModel shows a toast and skips the video.
      */
     @OptIn(UnstableApi::class)
     fun renderersFactory(context: Context): DefaultRenderersFactory =
@@ -97,14 +100,16 @@ object PlayerConfig {
     // -------------------------------------------------------------------------
 
     /**
-     * Shared [DefaultLoadControl] instance.
-     *
-     * Note: DefaultLoadControl.Builder was removed in Media3 1.5.x.
-     * The no-arg constructor uses library defaults (min=50s, max=50s).
-     * The constants MIN_BUFFER_MS / MAX_BUFFER_MS above document the
-     * intended target values; a custom LoadControl can be introduced
-     * later if fine-grained tuning is required.
+     * Shared [DefaultLoadControl] instance configured with the buffer
+     * durations declared above (5s min / 30s max / 1s for playback start).
      */
     @OptIn(UnstableApi::class)
-    val loadControl: DefaultLoadControl = DefaultLoadControl()
+    val loadControl: DefaultLoadControl = DefaultLoadControl.Builder()
+        .setBufferDurationsMs(
+            MIN_BUFFER_MS,
+            MAX_BUFFER_MS,
+            BUFFER_FOR_PLAYBACK_MS,
+            BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+        )
+        .build()
 }

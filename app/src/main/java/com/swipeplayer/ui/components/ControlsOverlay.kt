@@ -87,6 +87,7 @@ fun ControlsOverlay(
             ProgressBar(
                 positionMs = uiState.positionMs,
                 durationMs = uiState.durationMs,
+                bufferedPositionMs = uiState.bufferedPositionMs,
                 onSeek = viewModel::onSeek,
             )
             ToolBar(

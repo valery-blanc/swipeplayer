@@ -1,5 +1,6 @@
 package com.swipeplayer.ui.gesture
 
+import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
@@ -44,13 +45,17 @@ fun classifyZone(x: Float, screenWidth: Float): GestureZone = when {
  *     short tap (< 400ms):
  *       second tap within 200ms -> double-tap seek
  *       otherwise               -> delayed single tap (toggle controls)
+ *
+ * CRO-020: [canSwipeDown] is a lambda so it is NOT a key of [pointerInput] and
+ * the gesture handler is not recreated on every swipe (which was resetting
+ * [lastTapTimeMs] and breaking double-tap detection).
  */
 fun Modifier.gestureHandler(
     screenWidthPx: Float,
     screenHeightPx: Float,
     zoomScale: () -> Float,
     isSwipeEnabled: Boolean,
-    canSwipeDown: Boolean,
+    canSwipeDown: () -> Boolean,
     onSwipeUp: () -> Unit,
     onSwipeDown: () -> Unit,
     onTap: () -> Unit,
@@ -63,15 +68,19 @@ fun Modifier.gestureHandler(
     onHorizontalSeekUpdate: (deltaX: Float, screenWidthPx: Float) -> Unit = { _, _ -> },
     onHorizontalSeekEnd: () -> Unit = {},
     onHorizontalSeekCancel: () -> Unit = {},
-): Modifier = this.pointerInput(isSwipeEnabled, canSwipeDown, screenWidthPx, screenHeightPx) {
+// CRO-020: canSwipeDown removed from keys so handler is not recreated on every swipe
+): Modifier = this.pointerInput(isSwipeEnabled, screenWidthPx, screenHeightPx) {
 
     val minSwipePx = PlayerConfig.SWIPE_MIN_DP * density
-    val swipeDetector = SwipeDetector(minSwipePx)
+    // CRO-021: 20dp dead zone for side brightness/volume gestures (was 8px hardcoded)
+    val sideDeadZonePx = 20f * density
+    val swipeDetector = SwipeDetector(minSwipePx, density)
     val pinchHandler = PinchZoomHandler()
 
     // coroutineScope lets us launch the delayed single-tap job while
     // awaitEachGesture continues listening for the next gesture.
     coroutineScope {
+        // CRO-002: use uptimeMillis for consistent timing with VelocityTracker
         var lastTapTimeMs = 0L
         var pendingSingleTapJob: Job? = null
 
@@ -81,7 +90,8 @@ fun Modifier.gestureHandler(
             // --- Gesture start ---
             val firstDown = awaitFirstDown(requireUnconsumed = true)
             val startPos = firstDown.position
-            val startTimeMs = System.currentTimeMillis()
+            // CRO-002: uptimeMillis is the correct clock for VelocityTracker and tap timing
+            val startTimeMs = SystemClock.uptimeMillis()
             val zone = classifyZone(startPos.x, screenWidthPx)
 
             velocityTracker.addPosition(startTimeMs, startPos)
@@ -118,7 +128,8 @@ fun Modifier.gestureHandler(
                 val change = active.first()
                 val pos = change.position
                 totalDelta = pos - startPos
-                velocityTracker.addPosition(System.currentTimeMillis(), pos)
+                // CRO-002: uptimeMillis matches the Android input event timestamp reference
+                velocityTracker.addPosition(SystemClock.uptimeMillis(), pos)
 
                 if (!isDragging && !isHorizontal) {
                     isHorizontal = swipeDetector.isHorizontalIntent(totalDelta.x, totalDelta.y)
@@ -126,14 +137,16 @@ fun Modifier.gestureHandler(
 
                 when (zone) {
                     GestureZone.LEFT -> {
-                        if (totalDelta.y.absoluteValue > 8f) {
+                        // CRO-021: 20dp dead zone instead of 8px to avoid accidental activation
+                        if (totalDelta.y.absoluteValue > sideDeadZonePx) {
                             onBrightnessDelta(-(pos.y - lastPos.y) / screenHeightPx)
                             lastPos = pos
                             change.consume()
                         }
                     }
                     GestureZone.RIGHT -> {
-                        if (totalDelta.y.absoluteValue > 8f) {
+                        // CRO-021: 20dp dead zone instead of 8px to avoid accidental activation
+                        if (totalDelta.y.absoluteValue > sideDeadZonePx) {
                             onVolumeDelta(-(pos.y - lastPos.y) / screenHeightPx)
                             lastPos = pos
                             change.consume()
@@ -169,13 +182,15 @@ fun Modifier.gestureHandler(
                 return@awaitEachGesture
             }
 
-            val elapsed = System.currentTimeMillis() - startTimeMs
+            // CRO-002: uptimeMillis for elapsed tap duration
+            val elapsed = SystemClock.uptimeMillis() - startTimeMs
             val isTap = !isDragging && !isHorizontal && elapsed < 400L
 
             when (zone) {
                 GestureZone.CENTER -> when {
                     isTap -> {
-                        val now = System.currentTimeMillis()
+                        // CRO-002: uptimeMillis for double-tap window measurement
+                        val now = SystemClock.uptimeMillis()
                         if (now - lastTapTimeMs < PlayerConfig.DOUBLE_TAP_WINDOW_MS) {
                             pendingSingleTapJob?.cancel()
                             if (startPos.x < screenWidthPx / 2) onDoubleTapLeft()
@@ -199,7 +214,8 @@ fun Modifier.gestureHandler(
                         )
                         when (result) {
                             SwipeResult.UP   -> onSwipeUp()
-                            SwipeResult.DOWN -> if (canSwipeDown) onSwipeDown()
+                            // CRO-020: canSwipeDown is now a lambda
+                            SwipeResult.DOWN -> if (canSwipeDown()) onSwipeDown()
                             null             -> Unit
                         }
                     }
