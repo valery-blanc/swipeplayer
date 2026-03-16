@@ -22,18 +22,24 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SwipePlayer">
 
+        <!-- Home screen: launched from app icon -->
+        <activity
+            android:name=".ui.home.HomeActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.SwipePlayer.Fullscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.PlayerActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:launchMode="singleTask"
             android:theme="@style/Theme.SwipePlayer.Fullscreen">
-
-            <!-- App launcher -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
 
             <!--
                 "Open with" — MIME type matching (primary path, MIME type set by file manager).

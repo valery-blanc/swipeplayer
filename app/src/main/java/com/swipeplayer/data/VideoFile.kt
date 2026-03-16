@@ -28,6 +28,22 @@ val VIDEO_EXTENSIONS: Set<String> = setOf(
 val SUBTITLE_EXTENSIONS: Set<String> = setOf("srt", "ass", "ssa")
 
 /**
+ * Represents a folder (collection) that contains at least one video file.
+ * [bucketId]      MediaStore BUCKET_ID.
+ * [bucketName]    Display name of the folder.
+ * [videoCount]    Number of videos in this folder.
+ * [thumbnailUri]  URI of one video in the folder (used to load a thumbnail).
+ * [folderPath]    Absolute filesystem path to the folder; empty for SD-card volumes.
+ */
+data class FolderInfo(
+    val bucketId: Long,
+    val bucketName: String,
+    val videoCount: Int,
+    val thumbnailUri: Uri,
+    val folderPath: String,
+)
+
+/**
  * Represents an external subtitle file found alongside a video.
  * [mimeType] is a Media3 MIME type constant (e.g. MimeTypes.APPLICATION_SUBRIP).
  */

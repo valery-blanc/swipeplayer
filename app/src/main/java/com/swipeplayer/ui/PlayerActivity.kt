@@ -173,7 +173,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        val uri = intent?.data ?: return
+        val uri = intent?.data ?: run { finish(); return }
         Log.d(TAG, "handleIntent: uri=$uri scheme=${uri.scheme} authority=${uri.authority}")
 
         // Step 1: ensure basic media read permission is granted.

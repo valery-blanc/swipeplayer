@@ -362,6 +362,136 @@ class VideoRepository @Inject constructor(
         }
 
     // -------------------------------------------------------------------------
+    // Full-library scan (FEAT-010)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns all videos across all external storage volumes, sorted naturally.
+     * Used by the HomeScreen "Videos" tab.
+     */
+    suspend fun scanAllVideos(): List<VideoFile> =
+        withContext(Dispatchers.IO) {
+            val result = mutableListOf<VideoFile>()
+            for (volumeUri in allVideoVolumeUris()) {
+                runCatching {
+                    contentResolver.query(
+                        volumeUri,
+                        videoProjection,
+                        null, null, null,
+                    )?.use { cursor ->
+                        while (cursor.moveToNext()) cursor.toVideoFile(volumeUri)?.let { result += it }
+                    }
+                }.onFailure { Log.w(TAG, "scanAllVideos volume=$volumeUri failed: $it") }
+            }
+            result.sortedNaturally()
+        }
+
+    /**
+     * Returns one [FolderInfo] per distinct BUCKET_ID that contains at least one video.
+     * Sorted naturally by bucket name.
+     * Used by the HomeScreen "Collections" tab.
+     */
+    suspend fun scanCollections(): List<FolderInfo> =
+        withContext(Dispatchers.IO) {
+            val bucketProjection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.BUCKET_ID,
+                MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                MediaStore.Video.Media.DATA,
+            )
+            // Map from bucketId to (bucketName, thumbnailUri, folderPath, count)
+            data class BucketAcc(
+                val bucketName: String,
+                var thumbnailUri: android.net.Uri,
+                val folderPath: String,
+                var count: Int,
+            )
+            val buckets = mutableMapOf<Long, BucketAcc>()
+
+            for (volumeUri in allVideoVolumeUris()) {
+                runCatching {
+                    contentResolver.query(
+                        volumeUri,
+                        bucketProjection,
+                        null, null, null,
+                    )?.use { cursor ->
+                        val idCol     = cursor.getColumnIndex(MediaStore.Video.Media._ID)
+                        val bidCol    = cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID)
+                        val bnameCol  = cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+                        val dataCol   = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
+                        while (cursor.moveToNext()) {
+                            if (idCol < 0 || bidCol < 0) continue
+                            val bid   = cursor.getLong(bidCol)
+                            val bname = if (bnameCol >= 0) cursor.getString(bnameCol) ?: "" else ""
+                            val id    = cursor.getLong(idCol)
+                            val data  = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
+                            val folderPath = if (data.isNotBlank()) File(data).parent ?: "" else ""
+                            val thumbUri = ContentUris.withAppendedId(volumeUri, id)
+                            val existing = buckets[bid]
+                            if (existing == null) {
+                                buckets[bid] = BucketAcc(bname, thumbUri, folderPath, 1)
+                            } else {
+                                existing.count++
+                            }
+                        }
+                    }
+                }.onFailure { Log.w(TAG, "scanCollections volume=$volumeUri failed: $it") }
+            }
+
+            buckets.map { (bid, acc) ->
+                FolderInfo(
+                    bucketId     = bid,
+                    bucketName   = acc.bucketName,
+                    videoCount   = acc.count,
+                    thumbnailUri = acc.thumbnailUri,
+                    folderPath   = acc.folderPath,
+                )
+            }.sortedWith(Comparator { a, b ->
+                com.swipeplayer.util.naturalCompare(a.bucketName, b.bucketName)
+            })
+        }
+
+    /**
+     * Returns all videos in the folder identified by [bucketId], sorted naturally.
+     */
+    suspend fun listVideosByBucketId(bucketId: Long): List<VideoFile> =
+        withContext(Dispatchers.IO) {
+            val result = mutableListOf<VideoFile>()
+            for (volumeUri in allVideoVolumeUris()) {
+                runCatching {
+                    contentResolver.query(
+                        volumeUri,
+                        videoProjection,
+                        "${MediaStore.Video.Media.BUCKET_ID} = ?",
+                        arrayOf(bucketId.toString()),
+                        null,
+                    )?.use { cursor ->
+                        while (cursor.moveToNext()) cursor.toVideoFile(volumeUri)?.let { result += it }
+                    }
+                }.onFailure { Log.w(TAG, "listVideosByBucketId bucket=$bucketId failed: $it") }
+            }
+            result.sortedNaturally()
+        }
+
+    /**
+     * Lists the direct children (files and directories) of [dir] using the File API.
+     * Returns a pair of (subdirectories sorted by name, video files sorted naturally).
+     */
+    suspend fun browseDirectory(dir: File): Pair<List<File>, List<VideoFile>> =
+        withContext(Dispatchers.IO) {
+            val all = dir.listFiles() ?: return@withContext Pair(emptyList(), emptyList())
+            val dirs = all.filter { it.isDirectory && !it.name.startsWith('.') }
+                .sortedWith(Comparator { a, b -> naturalCompareStr(a.name, b.name) })
+            val videos = all.filter {
+                it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS
+            }.map { it.toVideoFile() }.sortedNaturally()
+            Pair(dirs, videos)
+        }
+
+    private fun naturalCompareStr(a: String, b: String) =
+        com.swipeplayer.util.naturalCompare(a, b)
+
+    // -------------------------------------------------------------------------
     // External subtitle detection (CR-009 / BUG-018)
     // -------------------------------------------------------------------------
 

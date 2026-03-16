@@ -744,6 +744,40 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### FEAT-009 — Animation de swipe style TikTok
+
+- [x] Spec : docs/specs/FEAT-009-tiktok-swipe-animation.md
+- [x] PlayerConfig.kt — SWIPE_COMMIT_FRACTION, SWIPE_COMMIT_VELOCITY_DP, SWIPE_DRAG_START_PX
+- [x] PlayerViewModel.kt — exposer nextPlayer
+- [x] GestureHandler.kt — onVideoDragUpdate + onVideoDragCancel + nouveau seuil commit
+- [x] PlayerScreen.kt — remplacer VerticalPager par Animatable + dual VideoSurface
+- [x] Deploy : ./gradlew installDebug
+- [ ] Test utilisateur + confirmation
+- [ ] Commit : FEAT-009
+
+---
+
+### FEAT-010 — Ecran d'accueil : Videos, Collections, Parcourir
+
+- [x] Spec : docs/specs/FEAT-010-home-screen.md
+- [x] VideoRepository.kt — +scanAllVideos(), +scanCollections() via MediaStore
+- [x] HomeUiState.kt — HomeTab, CollectionItem, VideoItem, BrowseState
+- [x] HomeViewModel.kt — @HiltViewModel, scan + browse
+- [x] HomeActivity.kt — @AndroidEntryPoint, LAUNCHER
+- [x] HomeScreen.kt — NavigationBar 3 onglets
+- [x] CollectionsScreen.kt — liste collections + sous-ecran dossier
+- [x] VideosScreen.kt — liste plate toutes les videos
+- [x] FileBrowserScreen.kt — navigateur interne avec back-stack
+- [x] VideoListItem.kt + CollectionListItem.kt — composables items
+- [x] AndroidManifest.xml — +HomeActivity LAUNCHER, -PlayerActivity LAUNCHER
+- [x] PlayerActivity.kt — finish() si intent.data == null
+- [x] PlayerScreen.kt — retirer bloc FEAT-005
+- [x] Deploy : ./gradlew installDebug
+- [x] Test utilisateur + confirmation
+- [x] Commit : FEAT-010
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

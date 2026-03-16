@@ -1,0 +1,7 @@
+feature
+
+quand on ouvre l'application depuis l'icône (et non pas depuis une app externe)
+on arrive directement sur la page qui liste les vidéos et les collections, par défaut c'est la page des collections qui est ouverte
+en plus de vidéo et collection il y a un 3e bouton : Parcourir (l'icône dans le bouton est un dossier) qui emmène au browser de fichiers
+Quand on choisit une vidéo n’importe où dans ces pages (vidéo, collection ou parcourir), ça ouvre la vidéo dans le lecteur de vidéo et on peut accéder à toutes les autres vidéos du même dossier avec les fonctions swipe haut et bas (NB : ce n’est pas le cas actuellement, on reste bloqué sur une seule vidéo). S’il y a besoin de demander des autorisations on les demande.
+
