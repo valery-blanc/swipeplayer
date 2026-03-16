@@ -1,6 +1,6 @@
 # SwipePlayer — Spécifications Techniques Complètes
 
-> **Version** : mise à jour intégrant FEAT-001 à FEAT-008, BUG-001 à BUG-011,
+> **Version** : mise à jour intégrant FEAT-001 à FEAT-014, BUG-001 à BUG-026,
 > revues de code CR-001 à CR-023, et corrections CRO-001 à CRO-031 (revue Opus 2026-03-12).
 > Pour l'historique des bugs et features, voir `docs/bugs/` et `docs/specs/FEAT-*.md`.
 
@@ -66,12 +66,23 @@ dependencies {
 SwipePlayer n'a pas d'explorateur de fichiers intégré. L'utilisateur utilise un
 gestionnaire de fichiers externe et choisit "Ouvrir avec → SwipePlayer".
 
-### Mode lancement depuis l'icône
+### Mode lancement depuis l'icône (FEAT-010/011/012)
 
-Quand l'app est lancée depuis le lanceur (sans URI vidéo), elle affiche un écran
-"Choisir une vidéo" avec un bouton qui ouvre le sélecteur de fichiers système
-(`ACTION_GET_CONTENT, video/*`). Le choix s'affiche à chaque ouverture depuis
-l'icône (pas de mémorisation). Voir FEAT-005.
+Quand l'app est lancée depuis le lanceur, elle ouvre **`HomeActivity`** qui affiche
+l'écran d'accueil avec trois onglets :
+
+- **Collections** (défaut) : dossiers de vidéos, groupés par BUCKET_ID MediaStore.
+  Cliquer un dossier affiche ses vidéos. Cliquer une vidéo ouvre le player avec
+  navigation swipe pour toutes les vidéos du même dossier.
+- **Vidéos** : liste plate de toutes les vidéos du stockage (scan MediaStore complet).
+- **Parcourir** : explorateur de fichiers interne (voir §15).
+
+L'écran d'accueil comporte un bandeau en haut avec l'icône de l'app et "SwipePlayer".
+Les onglets sont accessibles par tap sur la NavigationBar ou par swipe gauche/droite
+(HorizontalPager).
+
+Sélectionner une vidéo lance `PlayerActivity` via `Intent(ACTION_VIEW, uri)`.
+`PlayerActivity` se termine si lancée sans URI (`intent.data == null`).
 
 ### Déclaration du manifest (intent filters)
 
@@ -436,20 +447,32 @@ app/src/main/java/com/swipeplayer/
 ├── SwipePlayerApp.kt
 ├── di/AppModule.kt
 ├── data/
-│   ├── VideoFile.kt
+│   ├── VideoFile.kt               // VideoFile, FolderInfo, StorageVolumeInfo, SubtitleFile
 │   ├── VideoRepository.kt         // Listing multi-stratégie (SAF, MediaStore, File)
-│   ├── PlaybackHistory.kt
-│   └── VideoStateStore.kt         // Persistance position/zoom/format par vidéo (FEAT-001)
+│   ├── PlaybackHistory.kt         // + playbackOrder RANDOM/ALPHABETICAL (FEAT-013)
+│   └── VideoStateStore.kt         // Persistance position/zoom/format + playbackOrder
 ├── player/
 │   ├── VideoPlayerManager.kt      // Max 2 instances, looper partagé
 │   ├── PlayerConfig.kt            // MAX_ZOOM_SCALE=50f, enableDecoderFallback=true
 │   └── AudioFocusManager.kt
 └── ui/
-    ├── PlayerActivity.kt          // FLAG_KEEP_SCREEN_ON, MANAGE_EXTERNAL_STORAGE
+    ├── PlayerActivity.kt          // FLAG_KEEP_SCREEN_ON, finish() si intent.data==null
     ├── PlayerViewModel.kt
-    ├── PlayerUiState.kt           // DisplayMode : 7 modes dont RATIO_1_1/3_4/16_9
+    ├── PlayerUiState.kt           // DisplayMode 7 modes, PlaybackOrder RANDOM/ALPHABETICAL
+    ├── home/
+    │   ├── HomeActivity.kt        // LAUNCHER, @AndroidEntryPoint
+    │   ├── HomeViewModel.kt       // scan, browse, volumes, hidden files
+    │   ├── HomeUiState.kt         // HomeTab, storageVolumes, showHiddenFiles
+    │   ├── screen/
+    │   │   ├── HomeScreen.kt      // HorizontalPager 3 tabs + HomeTopBar (bitmap icon)
+    │   │   ├── CollectionsScreen.kt
+    │   │   ├── VideosScreen.kt
+    │   │   └── FileBrowserScreen.kt // volume picker + hidden files toggle
+    │   └── components/
+    │       ├── VideoListItem.kt
+    │       └── CollectionListItem.kt
     ├── screen/
-    │   └── PlayerScreen.kt        // NoVideoScreen si currentVideo==null (FEAT-005)
+    │   └── PlayerScreen.kt
     ├── components/
     │   ├── VideoSurface.kt        // BoxWithConstraints + requiredSize par mode
     │   ├── ControlsOverlay.kt     // Timer suspendu si menu/sheet ouvert
@@ -459,7 +482,7 @@ app/src/main/java/com/swipeplayer/
     │   ├── ToolBar.kt
     │   ├── FormatSelector.kt      // DropdownMenu 7 modes (FEAT-002)
     │   ├── SpeedSelector.kt
-    │   ├── SettingsSheet.kt
+    │   ├── SettingsSheet.kt       // + section ordre de lecture (FEAT-013)
     │   ├── BrightnessControl.kt
     │   ├── VolumeControl.kt
     │   └── DoubleTapFeedback.kt
@@ -505,7 +528,7 @@ Plage : **1x à 50x** (pratiquement illimité). Le zoom n'empêche pas le swipe 
 | content:// sans accès répertoire | Mode fichier unique, swipe désactivé, toast |
 | Vidéo > 4h | Format HH:MM:SS, aucune limitation |
 | Toutes vidéos vues | Reset pool (sauf vidéo courante), continuer aléatoire |
-| Lancement depuis l'icône | Écran "Choisir une vidéo" avec sélecteur système |
+| Lancement depuis l'icône | HomeActivity : écran d'accueil Collections/Vidéos/Parcourir |
 
 ---
 
@@ -607,3 +630,20 @@ automatiquement les stratégies SAF → MediaStore → mode fichier unique.
     `File.listFiles()` (nécessite `MANAGE_EXTERNAL_STORAGE`).
     `EXTERNAL_CONTENT_URI` ne couvre pas les cartes SD sur Android 10+ —
     utiliser `MediaStore.getExternalVolumeNames()` + `getContentUri(volumeName)`.
+
+13. **Icône app dans Compose** (BUG-026) : ne pas utiliser `painterResource(R.mipmap.ic_launcher)`.
+    Sur API 26+, les icônes adaptatives (XML `<adaptive-icon>`) ne sont pas supportées par
+    `painterResource`. Utiliser `PackageManager.getApplicationIcon()` + rendu Bitmap à la place.
+
+14. **Ordre de lecture** (FEAT-013) : `PlaybackOrder.RANDOM` (défaut) ou `ALPHABETICAL`.
+    Persisté dans `VideoStateStore` (clé `"global::playback_order"`).
+    Réglage accessible dans `SettingsSheet` → section "Ordre de lecture".
+    `PlaybackHistory.playbackOrder` contrôle le choix de `pickNext()` entre `pickRandom()`
+    et `pickSequential()` (index courant + 1 mod taille, lookup par identité puis URI).
+
+15. **Explorateur de fichiers** (FEAT-014) : l'onglet "Parcourir" de `HomeActivity` utilise
+    `browseDirectory(dir, showHiddenFiles)` de `VideoRepository`.
+    - Volumes disponibles détectés via `StorageManager.getStorageVolumes()` (API 30+)
+      ou `Environment + getExternalFilesDirs()` (API 26-29).
+    - `showHiddenFiles = false` par défaut : filtrage des noms commençant par ".".
+    - Le sélecteur de volume remplace l'affichage du chemin complet en haut de liste.

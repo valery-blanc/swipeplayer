@@ -44,6 +44,19 @@ data class FolderInfo(
 )
 
 /**
+ * Represents a mounted storage volume (internal storage, SD card, USB drive, etc.)
+ * used in the file browser to let the user switch between volumes.
+ * [path]        Root directory of this volume.
+ * [name]        Human-readable display name (e.g. "Stockage interne", "Carte SD").
+ * [isRemovable] True for removable media (SD card, USB).
+ */
+data class StorageVolumeInfo(
+    val path: java.io.File,
+    val name: String,
+    val isRemovable: Boolean,
+)
+
+/**
  * Represents an external subtitle file found alongside a video.
  * [mimeType] is a Media3 MIME type constant (e.g. MimeTypes.APPLICATION_SUBRIP).
  */

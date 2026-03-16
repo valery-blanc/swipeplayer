@@ -477,13 +477,14 @@ class VideoRepository @Inject constructor(
      * Lists the direct children (files and directories) of [dir] using the File API.
      * Returns a pair of (subdirectories sorted by name, video files sorted naturally).
      */
-    suspend fun browseDirectory(dir: File): Pair<List<File>, List<VideoFile>> =
+    suspend fun browseDirectory(dir: File, showHiddenFiles: Boolean = false): Pair<List<File>, List<VideoFile>> =
         withContext(Dispatchers.IO) {
             val all = dir.listFiles() ?: return@withContext Pair(emptyList(), emptyList())
-            val dirs = all.filter { it.isDirectory && !it.name.startsWith('.') }
+            val dirs = all.filter { it.isDirectory && (showHiddenFiles || !it.name.startsWith('.')) }
                 .sortedWith(Comparator { a, b -> naturalCompareStr(a.name, b.name) })
             val videos = all.filter {
                 it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS
+                    && (showHiddenFiles || !it.name.startsWith('.'))
             }.map { it.toVideoFile() }.sortedNaturally()
             Pair(dirs, videos)
         }

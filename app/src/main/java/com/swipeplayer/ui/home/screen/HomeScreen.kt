@@ -137,8 +137,12 @@ fun HomeScreen(
                     videos = uiState.browseVideos,
                     loading = uiState.browseLoading,
                     canGoUp = viewModel.canBrowseUp,
+                    storageVolumes = uiState.storageVolumes,
+                    showHiddenFiles = uiState.showHiddenFiles,
                     onDirSelected = viewModel::onBrowseDir,
                     onGoUp = { viewModel.onBrowseUp() },
+                    onVolumeSelected = viewModel::onVolumeSelected,
+                    onToggleHiddenFiles = viewModel::onToggleHiddenFiles,
                     onVideoSelected = viewModel::onVideoSelected,
                 )
             }

@@ -806,6 +806,28 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-026 — Crash au lancement : painterResource() sur icône adaptive
+
+- [x] Documenter : docs/bugs/BUG-026-adaptive-icon-crash-painterresource.md
+- [x] Fix : HomeScreen.kt — remplacer painterResource() par PackageManager.getApplicationIcon() + Bitmap
+- [x] swipeplayer-specs.md — ajouter règle §15.13
+- [x] CLAUDE.md — ajouter règle "crash découvert lors du test → créer BUG doc"
+
+---
+
+### FEAT-014 — Ecran Parcourir : volumes de stockage + fichiers cachés
+
+- [x] Spec : docs/specs/FEAT-014-browse-storage-volumes.md
+- [x] data/VideoFile.kt — +StorageVolumeInfo data class
+- [x] data/VideoRepository.kt — browseDirectory(showHiddenFiles)
+- [x] ui/home/HomeUiState.kt — +showHiddenFiles, +storageVolumes
+- [x] ui/home/HomeViewModel.kt — +loadStorageVolumes(), +onVolumeSelected(), +onToggleHiddenFiles()
+- [x] ui/home/screen/FileBrowserScreen.kt — header avec volume picker + toggle fichiers cachés
+- [x] ui/home/screen/HomeScreen.kt — passer nouveaux params
+- [ ] Deploy + test + commit
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

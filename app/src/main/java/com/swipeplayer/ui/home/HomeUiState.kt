@@ -2,6 +2,7 @@ package com.swipeplayer.ui.home
 
 import android.net.Uri
 import com.swipeplayer.data.FolderInfo
+import com.swipeplayer.data.StorageVolumeInfo
 import com.swipeplayer.data.VideoFile
 import java.io.File
 
@@ -28,6 +29,12 @@ data class HomeUiState(
     val browseDirs: List<File> = emptyList(),
     val browseVideos: List<VideoFile> = emptyList(),
     val browseLoading: Boolean = false,
+
+    // Browse: available storage volumes (internal + SD card + USB)
+    val storageVolumes: List<StorageVolumeInfo> = emptyList(),
+
+    // Browse: show/hide files and directories starting with "."
+    val showHiddenFiles: Boolean = false,
 
     // Permission
     val permissionDenied: Boolean = false,

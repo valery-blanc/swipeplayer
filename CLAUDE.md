@@ -54,6 +54,9 @@ Ordre impératif pour tout bug fix ou feature :
 - Le commit regroupe TOUJOURS : code source + fichiers de doc + TASKS.md
 - Si l'utilisateur signale un problème après test → corriger, re-déployer,
   re-demander confirmation AVANT de committer
+- **Si un crash est découvert lors du test** → créer `docs/bugs/BUG-XXX-*.md`
+  (même si le crash a déjà été corrigé), mettre à jour `swipeplayer-specs.md`
+  avec la règle à retenir, et référencer dans TASKS.md
 - Aucune exception : même pour une modification d'une seule ligne
 
 ---
