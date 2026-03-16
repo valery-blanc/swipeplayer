@@ -29,9 +29,16 @@ orale) — TOUJOURS :**
 1. **Créer ou mettre à jour le fichier de bug** (`docs/bugs/BUG-XXX-*.md`)
    ou de feature (`docs/specs/FEAT-XXX-*.md`) correspondant.
 
-2. **Mettre à jour `docs/specs/swipeplayer-specs.md`** pour refléter tout
-   changement de comportement, toute règle révisée ou toute nouvelle fonctionnalité.
-   Ne pas attendre qu'on le demande explicitement — c'est systématique.
+2. **Mettre à jour `docs/specs/swipeplayer-specs.md`** — OBLIGATOIRE, SANS EXCEPTION.
+   Ce fichier est la source de vérité de l'application. Il doit refléter à tout
+   moment le comportement réel du code. Mettre à jour :
+   - La section concernée (UI, navigation, persistance, architecture, etc.)
+   - Le numéro de version en en-tête (FEAT-XXX / BUG-XXX)
+   - La structure du projet §10 si des fichiers sont ajoutés/supprimés
+   - Les cas limites §12 si un nouveau cas est géré
+   - Les notes d'implémentation §15 si une règle technique nouvelle émerge
+   Ne pas attendre qu'on le demande. Si la feature est trop petite pour un §
+   dédié, intégrer l'info dans la section la plus proche.
 
 3. **Mettre à jour `docs/tasks/TASKS.md`** — toujours, sans condition :
    ajouter l'entrée si elle n'existe pas, cocher `[x]` les étapes terminées.
@@ -68,7 +75,8 @@ Ordre impératif pour tout bug fix ou feature :
 3. Implémenter le fix
 4. Mettre à jour toute la documentation :
    - `docs/bugs/BUG-XXX-*.md` → statut `FIXED`, fix appliqué décrit
-   - `docs/specs/swipeplayer-specs.md` (obligatoire)
+   - **`docs/specs/swipeplayer-specs.md` → OBLIGATOIRE** : mettre à jour la section
+     du comportement corrigé ET ajouter une note §15 si la règle technique est nouvelle
    - `docs/tasks/TASKS.md` → cocher `[x]` toutes les étapes terminées (obligatoire)
 5. **Déployer sur le téléphone** : `./gradlew installDebug`
 6. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
@@ -85,7 +93,9 @@ Ordre impératif pour tout bug fix ou feature :
 4. Implémenter
 5. Mettre à jour toute la documentation :
    - `docs/specs/FEAT-XXX-*.md` → statut `DONE`, implémentation décrite
-   - `docs/specs/swipeplayer-specs.md` (obligatoire)
+   - **`docs/specs/swipeplayer-specs.md` → OBLIGATOIRE** : intégrer le nouveau
+     comportement dans la/les section(s) concernée(s), mettre à jour §10 structure
+     si nécessaire, incrémenter la version en en-tête
    - `docs/tasks/TASKS.md` → cocher `[x]` toutes les étapes terminées (obligatoire)
 6. **Déployer sur le téléphone** : `./gradlew installDebug`
 7. **Demander à l'utilisateur de tester et attendre sa confirmation explicite**
