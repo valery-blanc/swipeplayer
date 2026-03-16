@@ -101,6 +101,10 @@ data class PlayerUiState(
 
     val audioTracks: List<TrackInfo> = emptyList(),
     val subtitleTracks: List<TrackInfo> = emptyList(),
+
+    // --- Playback order (FEAT-013) -------------------------------------------
+
+    val playbackOrder: PlaybackOrder = PlaybackOrder.RANDOM,
 )
 
 // ---------------------------------------------------------------------------
@@ -148,6 +152,14 @@ data class TrackInfo(
     val language: String? = null,
     val isSelected: Boolean = false,
 )
+
+/** Order used to pick the next video when swiping up. */
+enum class PlaybackOrder {
+    /** Pick the next video randomly (default). */
+    RANDOM,
+    /** Play videos in natural alphabetical order, cycling at the end. */
+    ALPHABETICAL,
+}
 
 /** Playback errors surfaced to the UI as toasts or overlays. */
 sealed class PlayerError {

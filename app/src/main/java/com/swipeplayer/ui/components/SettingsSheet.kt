@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swipeplayer.ui.PlaybackOrder
 import com.swipeplayer.ui.TrackInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,8 +30,10 @@ import com.swipeplayer.ui.TrackInfo
 fun SettingsSheet(
     audioTracks: List<TrackInfo>,
     subtitleTracks: List<TrackInfo>,
+    playbackOrder: PlaybackOrder,
     onAudioTrackSelected: (TrackInfo) -> Unit,
     onSubtitleTrackSelected: (TrackInfo?) -> Unit,
+    onPlaybackOrderChange: (PlaybackOrder) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -100,6 +103,24 @@ fun SettingsSheet(
                     )
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+
+            // --- Playback order ---
+            Text("Ordre de lecture", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(4.dp))
+            TrackRow(
+                label = "Aleatoire",
+                isSelected = playbackOrder == PlaybackOrder.RANDOM,
+                onClick = { onPlaybackOrderChange(PlaybackOrder.RANDOM) },
+            )
+            TrackRow(
+                label = "Alphabetique",
+                isSelected = playbackOrder == PlaybackOrder.ALPHABETICAL,
+                onClick = { onPlaybackOrderChange(PlaybackOrder.ALPHABETICAL) },
+            )
 
             Spacer(Modifier.height(24.dp))
         }

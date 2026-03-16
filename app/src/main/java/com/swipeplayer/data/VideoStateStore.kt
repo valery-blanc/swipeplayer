@@ -3,6 +3,7 @@ package com.swipeplayer.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.swipeplayer.ui.DisplayMode
+import com.swipeplayer.ui.PlaybackOrder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,6 +43,15 @@ class VideoStateStore @Inject constructor(
             .putString("${filename}::fmt", displayMode.name)
             .apply()
     }
+
+    fun savePlaybackOrder(order: PlaybackOrder) {
+        prefs.edit().putString("global::playback_order", order.name).apply()
+    }
+
+    fun loadPlaybackOrder(): PlaybackOrder =
+        prefs.getString("global::playback_order", PlaybackOrder.RANDOM.name)
+            ?.let { runCatching { PlaybackOrder.valueOf(it) }.getOrNull() }
+            ?: PlaybackOrder.RANDOM
 
     fun load(filename: String): VideoState? {
         if (!prefs.contains("${filename}::pos")) return null

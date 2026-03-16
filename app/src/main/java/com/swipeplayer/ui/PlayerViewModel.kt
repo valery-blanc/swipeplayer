@@ -58,6 +58,26 @@ class PlayerViewModel @Inject constructor(
     /** Current ExoPlayer instance; observed by VideoSurface to attach the surface. */
     val currentPlayer get() = playerManager.currentPlayer
 
+    /**
+     * Next ExoPlayer instance (preloaded, paused on first frame).
+     * Null when no preload is active.
+     */
+    val nextPlayer get() = playerManager.nextPlayer
+    val prevPlayer get() = playerManager.prevPlayer
+
+    /**
+     * StateFlow of the preloaded next ExoPlayer.
+     * Observed by PlayerScreen ping-pong to update the off-screen surface layer
+     * once a new video is buffered (FEAT-009).
+     */
+    val nextPlayerState: StateFlow<ExoPlayer?> = playerManager.nextPlayerState
+
+    /**
+     * StateFlow of the preloaded previous ExoPlayer.
+     * Symmetric to [nextPlayerState] — enables instant swipe-DOWN transitions.
+     */
+    val prevPlayerState: StateFlow<ExoPlayer?> = playerManager.prevPlayerState
+
     /** Flow of the current ExoPlayer — used by PlayerActivity to update MediaSession. */
     val currentPlayerState: StateFlow<ExoPlayer?> = playerManager.currentPlayerState
 
@@ -85,6 +105,9 @@ class PlayerViewModel @Inject constructor(
     /** CRO-010: pending preload job; cancelled before each new preload to avoid races. */
     private var peekJob: Job? = null
 
+    /** Pending prev-preload job; cancelled before each new preload. */
+    private var peekPrevJob: Job? = null
+
     /**
      * CRO-009: serializes all history navigation operations.
      * PlaybackHistory is not thread-safe; rapid swipes can interleave at suspend
@@ -111,6 +134,10 @@ class PlayerViewModel @Inject constructor(
         playerManager.onSourceError  = { onSourceErrorDetected() }
         playerManager.onTracksChanged = { tracks -> updateTracks(tracks) }
         playerManager.onPlaybackEnded = { onVideoEnded() }
+        // Load persisted playback order
+        val savedOrder = videoStateStore.loadPlaybackOrder()
+        history.playbackOrder = savedOrder
+        _uiState.update { it.copy(playbackOrder = savedOrder) }
     }
 
     // -------------------------------------------------------------------------
@@ -186,6 +213,25 @@ class PlayerViewModel @Inject constructor(
     }
 
     /**
+     * FEAT-009 ping-pong variant: advances to the next video without touching
+     * SurfaceViews. Called after the swipe-up animation completes and the
+     * ping-pong has already flipped the visible surface to the preloaded player.
+     * Uses [VideoPlayerManager.swapPlayersNoSurface] so ExoPlayer never detaches
+     * from the already-visible SurfaceView — eliminating the post-animation flash.
+     */
+    fun onSwipeUpNoSurface() {
+        if (!_uiState.value.isSwipeEnabled) return
+        viewModelScope.launch {
+            navigationMutex.withLock {
+                history.current?.let { saveCurrentState(it) }
+                val previous = history.current
+                val next = history.navigateForward()
+                switchToVideo(next, previousVideo = previous, noSurfaceSwap = true)
+            }
+        }
+    }
+
+    /**
      * Swipe down: go back in history.
      * No-op at the start of history (UI shows a bounce animation instead).
      * CRO-009: wrapped in navigationMutex to prevent PlaybackHistory corruption.
@@ -195,6 +241,9 @@ class PlayerViewModel @Inject constructor(
         if (!_uiState.value.isSwipeEnabled) return
         viewModelScope.launch {
             navigationMutex.withLock {
+                // BUG-022: save current video's position before navigating away,
+                // so it is restored the next time this video is navigated to.
+                history.current?.let { saveCurrentState(it) }
                 val prev = history.navigateBack() ?: return@withLock
                 // CRO-028: peekBack() returns the video before prev without modifying index
                 val beforePrev = history.peekBack()
@@ -240,6 +289,14 @@ class PlayerViewModel @Inject constructor(
     fun onSpeedChange(speed: Float) {
         playerManager.currentPlayer?.setPlaybackSpeed(speed)
         _uiState.update { it.copy(playbackSpeed = speed) }
+    }
+
+    fun onPlaybackOrderChange(order: PlaybackOrder) {
+        history.playbackOrder = order
+        // Invalidate the current peek so the next preload uses the new order
+        viewModelScope.launch { triggerPeekNext() }
+        _uiState.update { it.copy(playbackOrder = order) }
+        videoStateStore.savePlaybackOrder(order)
     }
 
     // -------------------------------------------------------------------------
@@ -471,7 +528,7 @@ class PlayerViewModel @Inject constructor(
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    private suspend fun startPlayback(video: VideoFile) {
+    private suspend fun startPlayback(video: VideoFile, noSurfaceSwap: Boolean = false) {
         // CR-010: generation counter — abort if a newer startPlayback() has started
         val token = ++playbackStartToken
 
@@ -483,8 +540,25 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT) }
         }
 
-        // CR-001: use pre-loaded nextPlayer if it matches the target video
-        val swapped = playerManager.nextPlayerVideo?.uri == video.uri && playerManager.swapToNext()
+        // BUG-022: pre-seek the preloaded next player BEFORE swapping so that
+        // play() starts at the saved position instead of 0.
+        // prevPlayer position is applied during triggerPeekPrev() — no seek here.
+        if (saved != null && saved.positionMs > 0L &&
+                playerManager.nextPlayerVideo?.uri == video.uri) {
+            playerManager.nextPlayer?.seekTo(saved.positionMs)
+        }
+
+        // CR-001: use pre-loaded player if it matches the target video.
+        // FEAT-009: swapPlayersNoSurface / swapPrevNoSurface avoid re-attaching
+        // surfaces, eliminating post-animation flash.
+        val swapped: Boolean = when {
+            playerManager.nextPlayerVideo?.uri == video.uri ->
+                if (noSurfaceSwap) playerManager.swapPlayersNoSurface()
+                else playerManager.swapToNext()
+            playerManager.prevPlayerVideo?.uri == video.uri ->
+                playerManager.swapPrevNoSurface()
+            else -> false
+        }
 
         if (!swapped) {
             // CR-009: find external subtitle files to include in the media item
@@ -503,15 +577,14 @@ class PlayerViewModel @Inject constructor(
             oldPlayer?.let {
                 if (it !== newPlayer) viewModelScope.launch { playerManager.releasePlayer(it, null) }
             }
-        }
-
-        // Seek to saved position after prepare
-        val player = playerManager.currentPlayer ?: return
-        if (saved != null && saved.positionMs > 0L) {
-            player.seekTo(saved.positionMs)
+            // Seek to saved position for fresh-prepared player
+            if (saved != null && saved.positionMs > 0L) {
+                newPlayer.seekTo(saved.positionMs)
+            }
         }
 
         triggerPeekNext()
+        triggerPeekPrev()
         audioFocusManager.requestFocus()
         startPositionPolling()
         _uiState.update { it.copy(isPlaying = true) }
@@ -529,14 +602,18 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    private suspend fun switchToVideo(video: VideoFile, previousVideo: VideoFile?) {
+    private suspend fun switchToVideo(
+        video: VideoFile,
+        previousVideo: VideoFile?,
+        noSurfaceSwap: Boolean = false,
+    ) {
         _uiState.update {
             it.copy(
                 currentVideo = video,
                 previousVideo = previousVideo,
             )
         }
-        startPlayback(video)
+        startPlayback(video, noSurfaceSwap = noSurfaceSwap)
     }
 
     /** Pre-selects the next video and starts buffering it in nextPlayer. */
@@ -549,6 +626,23 @@ class PlayerViewModel @Inject constructor(
             val next = history.peekNext()
             val subtitleFiles = videoRepository.findExternalSubtitles(next)
             playerManager.preloadNext(next, subtitleFiles)
+        }
+    }
+
+    /** Pre-loads the previous video into prevPlayer for instant swipe-DOWN. */
+    private fun triggerPeekPrev() {
+        val playlist = _uiState.value.playlist
+        if (playlist.size <= 1) return
+        val prev = history.peekBack() ?: return
+        peekPrevJob?.cancel()
+        peekPrevJob = viewModelScope.launch {
+            val subtitleFiles = videoRepository.findExternalSubtitles(prev)
+            playerManager.preloadPrev(prev, subtitleFiles)
+            // Apply saved position so the preloaded player is at the right frame.
+            val saved = videoStateStore.load(prev.name)
+            if (saved != null && saved.positionMs > 0L) {
+                playerManager.prevPlayer?.seekTo(saved.positionMs)
+            }
         }
     }
 
@@ -714,6 +808,7 @@ class PlayerViewModel @Inject constructor(
         hideVolumeBarJob?.cancel()
         clearDoubleTapJob?.cancel()
         peekJob?.cancel()
+        peekPrevJob?.cancel()
         audioFocusManager.listener = null
         // CRO-005: releaseAll() nullifies all callbacks and releases players.
         // runBlocking(Dispatchers.Main.immediate) executes synchronously since

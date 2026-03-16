@@ -1,5 +1,6 @@
 package com.swipeplayer.data
 
+import com.swipeplayer.ui.PlaybackOrder
 import java.util.Collections
 import java.util.IdentityHashMap
 
@@ -32,6 +33,9 @@ class PlaybackHistory {
      */
     private val unseenSet: MutableSet<VideoFile> =
         Collections.newSetFromMap(IdentityHashMap())
+
+    /** Order used to pick the next video. Update from ViewModel when user changes the setting. */
+    var playbackOrder: PlaybackOrder = PlaybackOrder.RANDOM
 
     // -------------------------------------------------------------------------
     // Observable state
@@ -84,7 +88,7 @@ class PlaybackHistory {
             history[currentIndex]
         } else {
             // Append a new video using the pre-selected peek (or pick now)
-            val next = peekNextVideo ?: pickRandom()
+            val next = peekNextVideo ?: pickNext()
             history.add(next)
             currentIndex = history.lastIndex
             peekNextVideo = null
@@ -139,7 +143,7 @@ class PlaybackHistory {
         val existing = peekNextVideo
         if (existing != null) return existing
 
-        val next = pickRandom()
+        val next = pickNext()
         peekNextVideo = next
         return next
     }
@@ -152,7 +156,7 @@ class PlaybackHistory {
      * Returns the committed video.
      */
     fun commitPeek(): VideoFile {
-        val next = peekNextVideo ?: pickRandom()
+        val next = peekNextVideo ?: pickNext()
         history.add(next)
         currentIndex = history.lastIndex
         peekNextVideo = null
@@ -174,6 +178,21 @@ class PlaybackHistory {
      *
      * CR-019: no longer rebuilds the unseen set from scratch on every call.
      */
+    private fun pickNext(): VideoFile =
+        if (playbackOrder == PlaybackOrder.ALPHABETICAL) pickSequential() else pickRandom()
+
+    private fun pickSequential(): VideoFile {
+        if (playlist.isEmpty()) return history[currentIndex]
+        val currentVideo = history.getOrNull(currentIndex) ?: return playlist.first()
+        // Find the index of the current video by identity
+        val idx = playlist.indexOfFirst { it === currentVideo }
+            .takeIf { it >= 0 }
+            ?: playlist.indexOfFirst { it.uri == currentVideo.uri }
+                .takeIf { it >= 0 }
+            ?: 0
+        return playlist[(idx + 1) % playlist.size]
+    }
+
     private fun pickRandom(): VideoFile {
         if (unseenSet.isEmpty()) {
             // Full cycle complete: reset pool, exclude only the current video

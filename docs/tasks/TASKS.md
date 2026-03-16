@@ -778,6 +778,34 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### FEAT-011 — Bandeau header dans l'ecran d'accueil
+
+- [x] Spec : docs/specs/FEAT-011-home-header.md
+- [x] HomeScreen.kt — ajouter TopAppBar avec icone + "SwipePlayer"
+- [x] Deploy + test + commit
+
+---
+
+### FEAT-012 — Swipe gauche/droite entre onglets
+
+- [x] Spec : docs/specs/FEAT-012-home-swipe-tabs.md
+- [x] HomeScreen.kt — remplacer when() par HorizontalPager, sync NavigationBar
+- [x] Deploy + test + commit
+
+---
+
+### FEAT-013 — Ordre de lecture : alphabetique ou aleatoire
+
+- [x] Spec : docs/specs/FEAT-013-playback-order.md
+- [x] PlayerUiState.kt — +PlaybackOrder enum + champ
+- [x] PlaybackHistory.kt — +playbackOrder, pickNext() conditionnel
+- [x] PlayerViewModel.kt — +onPlaybackOrderChange(), persistance SharedPreferences
+- [x] SettingsSheet.kt — +section ordre de lecture
+- [x] PlayerScreen.kt — passer playbackOrder + callback
+- [x] Deploy + test + commit
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |
