@@ -46,6 +46,29 @@ object PlayerConfig {
     const val SWIPE_MIN_VELOCITY_DP: Float = 200f
 
     // -------------------------------------------------------------------------
+    // TikTok-style swipe animation (FEAT-009)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Fraction of screen height that the drag must travel to commit the swipe.
+     * When the bottom of the current video passes the last quarter of the screen
+     * (25% of screen height travelled), the swipe is confirmed.
+     */
+    const val SWIPE_COMMIT_FRACTION: Float = 0.25f
+
+    /**
+     * Fling velocity in dp/s that overrides the distance threshold:
+     * a fast flick confirms the swipe even if the finger did not travel 25%.
+     */
+    const val SWIPE_COMMIT_VELOCITY_DP: Float = 800f
+
+    /**
+     * Vertical dead zone in pixels before the drag animation starts following
+     * the finger (prevents accidental activation on tiny movements).
+     */
+    const val SWIPE_DRAG_START_PX: Float = 10f
+
+    // -------------------------------------------------------------------------
     // Zoom
     // -------------------------------------------------------------------------
 

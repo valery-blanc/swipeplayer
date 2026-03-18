@@ -41,7 +41,9 @@ fun classifyZone(x: Float, screenWidth: Float): GestureZone = when {
  *   CENTER zone:
  *     horizontal first motion  -> seekbar mode (swipe cancelled)
  *     zoomScale > 1x           -> navigation swipe disabled
- *     drag >= 80dp             -> onSwipeUp / onSwipeDown
+ *     drag >= 10px             -> onVideoDragUpdate(dy) called continuously (FEAT-009)
+ *     release >= 25% screen OR high velocity -> onSwipeUp / onSwipeDown
+ *     release < 25% screen     -> onVideoDragCancel (elastic spring back)
  *     short tap (< 400ms):
  *       second tap within 200ms -> double-tap seek
  *       otherwise               -> delayed single tap (toggle controls)
@@ -68,6 +70,9 @@ fun Modifier.gestureHandler(
     onHorizontalSeekUpdate: (deltaX: Float, screenWidthPx: Float) -> Unit = { _, _ -> },
     onHorizontalSeekEnd: () -> Unit = {},
     onHorizontalSeekCancel: () -> Unit = {},
+    // FEAT-009: real-time drag progress for TikTok-style animation
+    onVideoDragUpdate: (dy: Float) -> Unit = {},
+    onVideoDragCancel: () -> Unit = {},
 // CRO-020: canSwipeDown removed from keys so handler is not recreated on every swipe
 ): Modifier = this.pointerInput(isSwipeEnabled, screenWidthPx, screenHeightPx) {
 
@@ -157,13 +162,24 @@ fun Modifier.gestureHandler(
                             onHorizontalSeekUpdate(totalDelta.x, screenWidthPx)
                             change.consume()
                         } else if (isHorizontal) {
+                            // Horizontal intent confirmed — cancel any in-progress drag
+                            if (isDragging) {
+                                isDragging = false
+                                onVideoDragCancel()
+                            }
                             isSeekingHorizontal = true
                             onHorizontalSeekStart()
                             onHorizontalSeekUpdate(totalDelta.x, screenWidthPx)
                             change.consume()
                         } else {
-                            if (totalDelta.y.absoluteValue >= minSwipePx) {
+                            // FEAT-009: start drag animation after small dead zone (10px),
+                            // well before the 80dp commit threshold.
+                            if (!isDragging &&
+                                totalDelta.y.absoluteValue >= PlayerConfig.SWIPE_DRAG_START_PX) {
                                 isDragging = true
+                            }
+                            if (isDragging) {
+                                onVideoDragUpdate(totalDelta.y)
                             }
                             change.consume()
                         }
@@ -174,6 +190,8 @@ fun Modifier.gestureHandler(
             // --- Dispatch result ---
             if (isPinch) {
                 if (isSeekingHorizontal) onHorizontalSeekCancel()
+                // FEAT-009: cancel any in-progress drag animation if pinch took over
+                if (isDragging && zone == GestureZone.CENTER) onVideoDragCancel()
                 return@awaitEachGesture
             }
 
@@ -206,17 +224,24 @@ fun Modifier.gestureHandler(
                             }
                         }
                     }
-                    isDragging && !isHorizontal && isSwipeEnabled -> {
-                        val result = swipeDetector.detect(
-                            startY = startPos.y,
-                            currentY = startPos.y + totalDelta.y,
-                            velocityY = velocityTracker.calculateVelocity().y,
-                        )
-                        when (result) {
-                            SwipeResult.UP   -> onSwipeUp()
-                            // CRO-020: canSwipeDown is now a lambda
-                            SwipeResult.DOWN -> if (canSwipeDown()) onSwipeDown()
-                            null             -> Unit
+                    isDragging && !isHorizontal -> {
+                        if (isSwipeEnabled) {
+                            // FEAT-009: commit threshold = 25% of screen height OR high velocity
+                            val velocity = velocityTracker.calculateVelocity().y
+                            val commitDistPx = screenHeightPx * PlayerConfig.SWIPE_COMMIT_FRACTION
+                            val commitVelPx = PlayerConfig.SWIPE_COMMIT_VELOCITY_DP * density
+                            val committed = totalDelta.y.absoluteValue >= commitDistPx
+                                || velocity.absoluteValue >= commitVelPx
+                            if (committed) {
+                                if (totalDelta.y < 0) onSwipeUp()
+                                // CRO-020: canSwipeDown is a lambda
+                                else if (canSwipeDown()) onSwipeDown()
+                                else onVideoDragCancel()
+                            } else {
+                                onVideoDragCancel()
+                            }
+                        } else {
+                            onVideoDragCancel()
                         }
                     }
                 }

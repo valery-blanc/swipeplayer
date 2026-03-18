@@ -61,6 +61,13 @@ class VideoPlayerManager @Inject constructor(
     var nextPlayerVideo: VideoFile? = null
         private set
 
+    var prevPlayer: ExoPlayer? = null
+        private set
+
+    /** Video currently loaded in [prevPlayer]; null if no preload is active. */
+    var prevPlayerVideo: VideoFile? = null
+        private set
+
     /**
      * Weak reference to the SurfaceView currently attached to [currentPlayer].
      * WeakReference prevents Activity leaks since this singleton outlives Activities.
@@ -86,6 +93,21 @@ class VideoPlayerManager @Inject constructor(
     /** StateFlow of the current (playing) ExoPlayer; null before first video loads. */
     private val _currentPlayerState = MutableStateFlow<ExoPlayer?>(null)
     val currentPlayerState: StateFlow<ExoPlayer?> = _currentPlayerState.asStateFlow()
+
+    /**
+     * StateFlow of the preloaded next ExoPlayer; null when no preload is active.
+     * Observed by PlayerScreen ping-pong to update the off-screen surface layer
+     * once a new video is buffered (FEAT-009).
+     */
+    private val _nextPlayerState = MutableStateFlow<ExoPlayer?>(null)
+    val nextPlayerState: StateFlow<ExoPlayer?> = _nextPlayerState.asStateFlow()
+
+    /**
+     * StateFlow of the preloaded previous ExoPlayer; null when no preload is active.
+     * Symmetrical to [nextPlayerState] — enables instant swipe-DOWN transitions.
+     */
+    private val _prevPlayerState = MutableStateFlow<ExoPlayer?>(null)
+    val prevPlayerState: StateFlow<ExoPlayer?> = _prevPlayerState.asStateFlow()
 
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -171,6 +193,7 @@ class VideoPlayerManager @Inject constructor(
         old?.let { releasePlayer(it, surfaceView = null) }
         nextPlayer = preparePlayer(video, preloadOnly = true, subtitleFiles = subtitleFiles)
         nextPlayerVideo = video
+        _nextPlayerState.value = nextPlayer
     }
 
     /**
@@ -197,11 +220,76 @@ class VideoPlayerManager @Inject constructor(
         _currentPlayerState.value = newCurrent
         nextPlayer = null
         nextPlayerVideo = null
+        _nextPlayerState.value = null
 
         if (oldCurrent != null) {
             managerScope.launch {
                 releasePlayer(oldCurrent, surfaceView = null)
             }
+        }
+        return true
+    }
+
+    /**
+     * FEAT-009 ping-pong: promotes [nextPlayer] to [currentPlayer] and starts
+     * playback WITHOUT touching any SurfaceView.
+     *
+     * Used when PlayerScreen's ping-pong already has the next video visible on
+     * the correct SurfaceView — re-attaching surfaces would cause a visible flash.
+     * The caller (PlayerScreen) is responsible for managing surface associations.
+     *
+     * Returns true if the swap succeeded, false if [nextPlayer] is null.
+     */
+    fun swapPlayersNoSurface(): Boolean {
+        val newCurrent = nextPlayer ?: return false
+        val oldCurrent = currentPlayer
+
+        newCurrent.play()
+        currentPlayer = newCurrent
+        _currentPlayerState.value = newCurrent
+        nextPlayer = null
+        nextPlayerVideo = null
+        _nextPlayerState.value = null
+
+        if (oldCurrent != null) {
+            // Release without surface clearing — its SurfaceView is off-screen at this point.
+            managerScope.launch { releasePlayer(oldCurrent, surfaceView = null) }
+        }
+        return true
+    }
+
+    /**
+     * Buffers [video] into [prevPlayer] so swipe-DOWN is instant (symmetric to
+     * [preloadNext] for swipe-UP). Releases any previously pre-loaded prev player.
+     */
+    suspend fun preloadPrev(video: VideoFile, subtitleFiles: List<SubtitleFile> = emptyList()) {
+        val old = prevPlayer
+        prevPlayer = null
+        prevPlayerVideo = null
+        old?.let { releasePlayer(it, surfaceView = null) }
+        prevPlayer = preparePlayer(video, preloadOnly = true, subtitleFiles = subtitleFiles)
+        prevPlayerVideo = video
+        _prevPlayerState.value = prevPlayer
+    }
+
+    /**
+     * Promotes [prevPlayer] to [currentPlayer] without touching any SurfaceView.
+     * Symmetric to [swapPlayersNoSurface] for the swipe-DOWN direction.
+     * Returns true if the swap succeeded, false if [prevPlayer] is null.
+     */
+    fun swapPrevNoSurface(): Boolean {
+        val newCurrent = prevPlayer ?: return false
+        val oldCurrent = currentPlayer
+
+        newCurrent.play()
+        currentPlayer = newCurrent
+        _currentPlayerState.value = newCurrent
+        prevPlayer = null
+        prevPlayerVideo = null
+        _prevPlayerState.value = null
+
+        if (oldCurrent != null) {
+            managerScope.launch { releasePlayer(oldCurrent, surfaceView = null) }
         }
         return true
     }
@@ -254,11 +342,16 @@ class VideoPlayerManager @Inject constructor(
     suspend fun releaseAll() {
         val c = currentPlayer
         val n = nextPlayer
+        val p = prevPlayer
         currentPlayer = null
         nextPlayer = null
         nextPlayerVideo = null
+        prevPlayer = null
+        prevPlayerVideo = null
         currentSurfaceRef = null
         _currentPlayerState.value = null
+        _nextPlayerState.value = null
+        _prevPlayerState.value = null
         // CRO-012: null callbacks so the Singleton does not retain the ViewModel
         onCodecFailure = null
         onSourceError = null
@@ -267,6 +360,7 @@ class VideoPlayerManager @Inject constructor(
 
         c?.let { releasePlayer(it, surfaceView = null) }
         n?.let { releasePlayer(it, surfaceView = null) }
+        p?.let { releasePlayer(it, surfaceView = null) }
     }
 
     // -------------------------------------------------------------------------
