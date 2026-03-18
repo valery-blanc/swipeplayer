@@ -828,6 +828,18 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 
 ---
 
+### BUG-027 — Fin de vidéo : pas d'animation, image figée
+
+- [x] Documenter : docs/bugs/BUG-027-video-end-no-animation.md
+- [x] PlayerViewModel.kt — ajouter `autoSwipeUpEvent: SharedFlow<Unit>`, émettre dans `onVideoEnded()` au lieu d'appeler `onSwipeUp()` directement
+- [x] PlayerScreen.kt — extraire `doSwipeUpAnimation()` suspend locale, `LaunchedEffect(Unit)` qui collecte `autoSwipeUpEvent` et l'appelle ; `onSwipeUp` gesture réutilise la même fonction
+- [x] swipeplayer-specs.md — ajouter §15.16, incrémenter version BUG-027
+- [ ] Deploy : ./gradlew installDebug
+- [ ] Test + confirmation utilisateur
+- [ ] Commit : FIX BUG-027
+
+---
+
 ## Résumé des milestones
 
 | Milestone | Tâches | Prérequis |

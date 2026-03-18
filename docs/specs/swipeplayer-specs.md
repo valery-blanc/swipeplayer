@@ -1,6 +1,6 @@
 # SwipePlayer — Spécifications Techniques Complètes
 
-> **Version** : mise à jour intégrant FEAT-001 à FEAT-014, BUG-001 à BUG-026,
+> **Version** : mise à jour intégrant FEAT-001 à FEAT-014, BUG-001 à BUG-027,
 > revues de code CR-001 à CR-023, et corrections CRO-001 à CRO-031 (revue Opus 2026-03-12).
 > Pour l'historique des bugs et features, voir `docs/bugs/` et `docs/specs/FEAT-*.md`.
 
@@ -640,6 +640,13 @@ automatiquement les stratégies SAF → MediaStore → mode fichier unique.
     Réglage accessible dans `SettingsSheet` → section "Ordre de lecture".
     `PlaybackHistory.playbackOrder` contrôle le choix de `pickNext()` entre `pickRandom()`
     et `pickSequential()` (index courant + 1 mod taille, lookup par identité puis URI).
+
+16. **Fin de vidéo → animation TikTok** (BUG-027) : quand `onPlaybackStateChanged` détecte
+    `STATE_ENDED`, le ViewModel émet un `SharedFlow<Unit> autoSwipeUpEvent` au lieu d'appeler
+    `onSwipeUp()` directement. `PlayerScreen` collecte ce flow dans un `LaunchedEffect(Unit)`
+    et exécute `doSwipeUpAnimation()` — exactement la même animation ping-pong que le geste
+    manuel. La vidéo terminée monte, la vidéo suivante arrive par le bas. Le mode single-file
+    reste géré directement dans le ViewModel (seekTo(0) + play()).
 
 15. **Explorateur de fichiers** (FEAT-014) : l'onglet "Parcourir" de `HomeActivity` utilise
     `browseDirectory(dir, showHiddenFiles)` de `VideoRepository`.

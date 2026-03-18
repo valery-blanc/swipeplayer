@@ -85,6 +85,14 @@ class PlayerViewModel @Inject constructor(
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
 
+    /**
+     * BUG-027: emits when the current video ends and swipe is enabled.
+     * Observed by PlayerScreen to trigger the TikTok swipe-up animation,
+     * exactly as if the user had swiped manually.
+     */
+    private val _autoSwipeUpEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val autoSwipeUpEvent: SharedFlow<Unit> = _autoSwipeUpEvent.asSharedFlow()
+
     private val history = PlaybackHistory()
 
     /** Current position-polling job; cancelled/restarted on play/pause. */
@@ -790,7 +798,9 @@ class PlayerViewModel @Inject constructor(
 
     private fun onVideoEnded() {
         if (_uiState.value.isSwipeEnabled) {
-            onSwipeUp()
+            // BUG-027: emit event so PlayerScreen triggers the TikTok animation,
+            // instead of swapping players directly (which skips the visual transition).
+            viewModelScope.launch { _autoSwipeUpEvent.emit(Unit) }
         } else {
             // Single file: seek to beginning and replay
             val player = playerManager.currentPlayer ?: return

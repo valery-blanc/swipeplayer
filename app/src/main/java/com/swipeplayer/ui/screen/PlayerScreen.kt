@@ -143,6 +143,40 @@ fun PlayerScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
 
     // -------------------------------------------------------------------------
+    // BUG-027: Reusable swipe-up animation — called by gesture AND auto-next.
+    // Defined here (after all state vars) so it captures the current snapshot
+    // state. Must be launched in [scope].
+    // -------------------------------------------------------------------------
+    suspend fun doSwipeUpAnimation() {
+        swipeDir = -1
+        val backIsReady = if (aIsFront) playerB != null else playerA != null
+        if (!backIsReady) {
+            val loaded = kotlinx.coroutines.withTimeoutOrNull(2_000L) {
+                viewModel.nextPlayerState.first { it != null }
+            }
+            if (loaded != null) {
+                if (aIsFront) playerB = loaded else playerA = loaded
+            }
+        }
+        dragOffset.animateTo(
+            -screenHeightPx,
+            tween(PlayerConfig.SWIPE_TRANSITION_MS),
+        )
+        val wasAFront = aIsFront
+        aIsFront = !aIsFront
+        dragOffset.snapTo(0f)
+        swipeDir = 0
+        viewModel.onSwipeUpNoSurface()
+        if (wasAFront) playerA = null else playerB = null
+    }
+
+    // Collect auto-swipe-up events emitted when a video ends (BUG-027).
+    // ViewModel already guards on isSwipeEnabled before emitting.
+    LaunchedEffect(Unit) {
+        viewModel.autoSwipeUpEvent.collect { doSwipeUpAnimation() }
+    }
+
+    // -------------------------------------------------------------------------
     // Surface offset computation (read in graphicsLayer draw phase — no recompose)
     // -------------------------------------------------------------------------
 
@@ -182,45 +216,8 @@ fun PlayerScreen(
                 // Swipe UP: ping-pong flip — no surface re-attachment, no flash.
                 // ------------------------------------------------------------------
                 onSwipeUp = {
-                    swipeDir = -1
-                    scope.launch {
-                        // BUG-024: if the back player isn't set yet, wait up to 2s for
-                        // the preload to finish before animating — avoids black square.
-                        val backIsReady = if (aIsFront) playerB != null else playerA != null
-                        if (!backIsReady) {
-                            val loaded = kotlinx.coroutines.withTimeoutOrNull(2_000L) {
-                                viewModel.nextPlayerState.first { it != null }
-                            }
-                            if (loaded != null) {
-                                if (aIsFront) playerB = loaded else playerA = loaded
-                            }
-                        }
-                        dragOffset.animateTo(
-                            -screenHeightPx,
-                            tween(PlayerConfig.SWIPE_TRANSITION_MS),
-                        )
-                        // At this point:
-                        //   front surface: y = -H  (off screen top)
-                        //   back  surface: y = H + (-H) = 0  (visible, showing nextPlayer)
-
-                        // Flip: the surface at y=0 (back) becomes the new front.
-                        val wasAFront = aIsFront
-                        aIsFront = !aIsFront
-                        dragOffset.snapTo(0f)
-                        // New front: y=0 (unchanged) ✓
-                        // New back: y=H (off screen below) ✓
-                        swipeDir = 0
-
-                        // Tell ViewModel: advance without touching SurfaceViews.
-                        // swapPlayersNoSurface() starts playing the preloaded player
-                        // that is ALREADY on the now-visible SurfaceView.
-                        viewModel.onSwipeUpNoSurface()
-
-                        // Clear the old player reference from the new back surface.
-                        // LaunchedEffect(nextPlayerState) will set the new preload.
-                        if (wasAFront) playerA = null   // A is now back
-                        else           playerB = null   // B is now back
-                    }
+                    // BUG-027: reuse doSwipeUpAnimation() — same code path as auto-next.
+                    scope.launch { doSwipeUpAnimation() }
                 },
                 // ------------------------------------------------------------------
                 // Swipe DOWN: symmetric ping-pong flip (mirror of swipe UP).
