@@ -388,7 +388,7 @@ nouveau player, il est détaché de l'ancien (BUG-013).
 | Retour au premier plan | Reprise si était en lecture |
 | Écran éteint | Pause, libération partielle |
 | Rotation | `configChanges` — pas de recréation d'activité |
-| Fin de vidéo | Vidéo aléatoire suivante, ou relecture si mode fichier unique (FEAT-003) |
+| Fin de vidéo | Simule un swipe-up : animation TikTok jouée (vidéo terminée monte, suivante arrive par le bas), puis vidéo suivante démarre. En mode fichier unique : relecture depuis le début sans animation (FEAT-003, BUG-027) |
 
 ### Écran allumé (FEAT-006)
 
