@@ -1,7 +1,8 @@
 # SwipePlayer — Spécifications Techniques Complètes
 
-> **Version** : mise à jour intégrant FEAT-001 à FEAT-014, BUG-001 à BUG-027,
+> **Version** : mise à jour intégrant FEAT-001 à FEAT-018, BUG-001 à BUG-027,
 > revues de code CR-001 à CR-023, et corrections CRO-001 à CRO-031 (revue Opus 2026-03-12).
+> FEAT-015 à FEAT-018 ajoutées le 2026-04-07.
 > Pour l'historique des bugs et features, voir `docs/bugs/` et `docs/specs/FEAT-*.md`.
 
 ## 1. Vue d'ensemble du projet
@@ -284,15 +285,25 @@ Feedback : barre verticale + icône soleil jaune. Local à l'app uniquement.
 de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
 bloc `AnimatedVisibility` des contrôles.
 
+**Persistance (FEAT-015)** : le réglage est global (pas par vidéo), sauvegardé
+dans `SharedPreferences` (clé `"global::brightness"`). Restauré au lancement.
+
 ### 6.4 Réglage volume (bande droite 15%)
 
-Swipe vertical → `player.volume` (0.0f–1.0f).
-Feedback : barre verticale + icône haut-parleur bleu.
+Swipe vertical → `player.volume` (0.0f–1.5f, amplification possible au-delà de 100%).
+Feedback : barre verticale + icône haut-parleur bleu. La barre représente la plage 0–150%
+(1.5 = barre pleine).
 **Dead zone** : 20dp minimum avant activation (même règle que la luminosité).
+
+**Sensibilité (FEAT-016)** : 1/3 de la hauteur d'écran suffit pour passer de 0% à 100%
+(multiplicateur ×3 dans le gestureHandler).
 
 **Le slider de volume s'affiche dès que le swipe débute, indépendamment
 de la visibilité des contrôles principaux (BUG-011).** Il est rendu hors du
 bloc `AnimatedVisibility` des contrôles.
+
+**Persistance (FEAT-016)** : le volume est sauvegardé par vidéo (clé `"${filename}::vol"`),
+restauré à l'ouverture de chaque vidéo.
 
 ### 6.5 Barre de progression (style Netflix)
 
@@ -307,8 +318,9 @@ bloc `AnimatedVisibility` des contrôles.
 | Bouton | Fonction | Comportement |
 |---|---|---|
 | `[1x]` | Vitesse | `DropdownMenu` : 0.25x, 0.33x, 0.5x, 0.75x, 1x, 1.5x, 2x, 3x, 4x (FEAT-007) |
-| `[⚙]` | Réglages | `ModalBottomSheet` : piste audio, sous-titres, info décodeur |
+| `[⚙]` | Réglages | `ModalBottomSheet` : piste audio, sous-titres, ordre de lecture, info décodeur |
 | `[⛶]` | Format | `DropdownMenu` avec 7 modes (voir §6.7) |
+| `[↔]` | Miroir | Bascule le miroir horizontal (FEAT-017). Icône `Flip` retournée quand actif. Persistant par vidéo. |
 | `[rot]` | Orientation | Cycle : Auto → Paysage → Portrait |
 
 **Note** : les menus dropdown (vitesse, format) et le BottomSheet (réglages)
@@ -502,8 +514,14 @@ app/src/main/java/com/swipeplayer/
 - **Position** : reprend là où on s'était arrêté
 - **Zoom** : restaure le niveau de zoom
 - **Format** : restaure le mode d'affichage
+- **Volume** : restaure le volume (FEAT-016)
+- **Miroir** : restaure l'état miroir horizontal (FEAT-017)
 
-Si aucun état sauvegardé → position 0, zoom 1x, format Adapter.
+Si aucun état sauvegardé → position 0, zoom 1x, format Adapter, volume 1.0, miroir off.
+
+État global (pas par vidéo) :
+- **Luminosité** : clé `"global::brightness"` — restaurée au lancement (FEAT-015)
+- **Ordre de lecture** : clé `"global::playback_order"`
 
 ### Règles de sauvegarde
 
@@ -569,7 +587,11 @@ automatiquement les stratégies SAF → MediaStore → mode fichier unique.
 
 ## 15. Notes d'implémentation
 
-1. **`SurfaceView` wrappé dans `AndroidView`** pour le rendu vidéo uniquement.
+1. **`TextureView` wrappé dans `AndroidView`** pour le rendu vidéo (FEAT-017 : migré de
+   `SurfaceView` pour permettre le miroir horizontal via `tv.scaleX = -1f`).
+   `SurfaceView` rend dans un buffer SurfaceFlinger hors du pipeline RenderNode — les
+   transforms View/graphicsLayer n'atteignent pas son contenu. `TextureView` rend dans
+   une texture OpenGL intégrée à l'app ; le décodage HW+ (`MediaCodec`) est inchangé.
    Tout l'overlay UI en Compose pur.
 
 2. **`VerticalPager` 3 pages logiques** (0=précédente, 1=courante, 2=suivante)
@@ -635,11 +657,18 @@ automatiquement les stratégies SAF → MediaStore → mode fichier unique.
     Sur API 26+, les icônes adaptatives (XML `<adaptive-icon>`) ne sont pas supportées par
     `painterResource`. Utiliser `PackageManager.getApplicationIcon()` + rendu Bitmap à la place.
 
-14. **Ordre de lecture** (FEAT-013) : `PlaybackOrder.RANDOM` (défaut) ou `ALPHABETICAL`.
+14. **Ordre de lecture** (FEAT-013 / FEAT-018) : 4 modes disponibles :
+    - `RANDOM` (défaut) : vidéo aléatoire non vue, reset pool quand tout vu
+    - `ALPHABETICAL` : ordre alphabétique naturel, cycle
+    - `BY_DATE` (FEAT-018) : ordre décroissant de `lastModified` (plus récent en premier), cycle.
+      `VideoFile.lastModified` rempli depuis `MediaStore.DATE_MODIFIED` (×1000 ms)
+      ou `File.lastModified()`.
+    - `PARENT_RANDOM` (FEAT-018) : aléatoire parmi toutes les vidéos des répertoires
+      frères (même parent). Les dossiers cachés (`.xxx` ou `.nomedia`) sont inclus.
+      Pool chargé de façon asynchrone via `VideoRepository.listSiblingDirectoryVideos()`.
+      Dégradation silencieuse vers RANDOM si le chemin ne peut pas être résolu.
     Persisté dans `VideoStateStore` (clé `"global::playback_order"`).
     Réglage accessible dans `SettingsSheet` → section "Ordre de lecture".
-    `PlaybackHistory.playbackOrder` contrôle le choix de `pickNext()` entre `pickRandom()`
-    et `pickSequential()` (index courant + 1 mod taille, lookup par identité puis URI).
 
 16. **Fin de vidéo → animation TikTok** (BUG-027) : quand `onPlaybackStateChanged` détecte
     `STATE_ENDED`, le ViewModel émet un `SharedFlow<Unit> autoSwipeUpEvent` au lieu d'appeler

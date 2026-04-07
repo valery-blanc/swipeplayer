@@ -16,6 +16,7 @@ data class VideoFile(
     val path: String,
     val duration: Long,
     val size: Long = 0L,
+    val lastModified: Long = -1L,
 )
 
 /** Supported video file extensions (lowercase). */

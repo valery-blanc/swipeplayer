@@ -937,3 +937,44 @@ Session 2026-03-12. Revue independante par Opus 4.6 — 21 corrections a appliqu
 
 - [x] **CRO-026** `VideoRepository.kt` — supprimer isSafUri() code mort
 - [x] **CRO-031** `VideoStateStore.kt` — cles SharedPreferences separateur ::
+
+
+---
+
+## FEAT-015 à FEAT-018 — Features temp.txt (2026-04-07)
+
+### FEAT-015 — Luminosité persistante (globale)
+
+- [x] `VideoStateStore.kt` — ajout `saveBrightness` / `loadBrightness`
+- [x] `PlayerViewModel.kt` — init charge brightness ; `onBrightnessDelta`/`onBrightnessChange` sauvegardent
+
+### FEAT-016 — Volume : sensibilité ×3 + plage 0–150% + persistance par vidéo
+
+- [x] `GestureHandler.kt` — delta volume ×3 (1/3 hauteur = 100%)
+- [x] `PlayerViewModel.kt` — plage 0–1.5f ; save/load volume dans startPlayback/saveCurrentState
+- [x] `VideoStateStore.kt` — ajout `volume` dans `VideoState` et save/load
+- [x] `VolumeControl.kt` — normalise `volume / 1.5f` pour la barre
+
+### FEAT-017 — Miroir horizontal persistant par vidéo
+
+- [x] `PlayerUiState.kt` — ajout `isMirrored: Boolean`
+- [x] `VideoStateStore.kt` — ajout `isMirrored` dans `VideoState` et save/load
+- [x] `PlayerViewModel.kt` — ajout `onMirrorToggle()` ; save/load dans startPlayback/saveCurrentState
+- [x] `VideoSurface.kt` — paramètre `isMirrored`, `scaleX` inversé si actif
+- [x] `ToolBar.kt` — bouton miroir avec icône à état
+- [x] `ControlsOverlay.kt` — transmet `isMirrored` et `onMirrorToggle` à ToolBar
+- [x] `PlayerScreen.kt` — transmet `uiState.isMirrored` aux deux VideoSurface
+
+### FEAT-018 — Ordres de lecture : BY_DATE + PARENT_RANDOM
+
+- [x] `VideoFile.kt` — ajout `lastModified: Long`
+- [x] `VideoRepository.kt` — projection DATE_MODIFIED ; méthode `listSiblingDirectoryVideos`
+- [x] `PlayerUiState.kt` — ajout `BY_DATE`, `PARENT_RANDOM` dans enum `PlaybackOrder`
+- [x] `PlaybackHistory.kt` — `siblingPlaylist`, `pickByDate()`, `pickFromSiblings()`
+- [x] `PlayerViewModel.kt` — stocke `intentUri` ; charge siblings async sur PARENT_RANDOM
+- [x] `SettingsSheet.kt` — 2 nouvelles options dans "Ordre de lecture"
+
+### Documentation
+
+- [x] Specs FEAT-015 à FEAT-018 créées dans `docs/specs/`
+- [x] `swipeplayer-specs.md` mis à jour

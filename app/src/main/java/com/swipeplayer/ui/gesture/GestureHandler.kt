@@ -151,8 +151,9 @@ fun Modifier.gestureHandler(
                     }
                     GestureZone.RIGHT -> {
                         // CRO-021: 20dp dead zone instead of 8px to avoid accidental activation
+                        // FEAT-016: ×3 sensitivity so 1/3 of screen height = 100% of range
                         if (totalDelta.y.absoluteValue > sideDeadZonePx) {
-                            onVolumeDelta(-(pos.y - lastPos.y) / screenHeightPx)
+                            onVolumeDelta(-(pos.y - lastPos.y) / screenHeightPx * 3f)
                             lastPos = pos
                             change.consume()
                         }

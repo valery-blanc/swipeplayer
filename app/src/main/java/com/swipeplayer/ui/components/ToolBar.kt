@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.swipeplayer.ui.DisplayMode
 import com.swipeplayer.ui.OrientationMode
@@ -26,9 +28,11 @@ fun ToolBar(
     orientationMode: OrientationMode,
     audioTracks: List<TrackInfo> = emptyList(),
     subtitleTracks: List<TrackInfo> = emptyList(),
+    isMirrored: Boolean = false,
     onSpeedSelected: (Float) -> Unit,
     onFormatSelected: (DisplayMode) -> Unit,
     onOrientationChange: () -> Unit,
+    onMirrorToggle: () -> Unit = {},
     onMenuStateChange: (Boolean) -> Unit = {},
     onAudioTrackSelected: (TrackInfo) -> Unit = {},
     onSubtitleTrackSelected: (TrackInfo?) -> Unit = {},
@@ -65,6 +69,18 @@ fun ToolBar(
             onFormatSelected = onFormatSelected,
             onMenuStateChange = onMenuStateChange,
         )
+
+        // Mirror — FEAT-017: icon flips horizontally when active
+        IconButton(onClick = onMirrorToggle) {
+            Icon(
+                imageVector = Icons.Filled.Flip,
+                contentDescription = if (isMirrored) "Miroir actif" else "Miroir inactif",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer { scaleX = if (isMirrored) -1f else 1f },
+            )
+        }
 
         // Orientation
         IconButton(onClick = onOrientationChange) {

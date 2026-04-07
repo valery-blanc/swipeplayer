@@ -37,6 +37,11 @@ class PlaybackHistory {
     /** Order used to pick the next video. Update from ViewModel when user changes the setting. */
     var playbackOrder: PlaybackOrder = PlaybackOrder.RANDOM
 
+    // FEAT-018: extended pool for PARENT_RANDOM mode
+    private var siblingPlaylist: List<VideoFile> = emptyList()
+    private val unseenSiblingSet: MutableSet<VideoFile> =
+        Collections.newSetFromMap(IdentityHashMap())
+
     // -------------------------------------------------------------------------
     // Observable state
     // -------------------------------------------------------------------------
@@ -63,6 +68,22 @@ class PlaybackHistory {
         unseenSet.clear()
         unseenSet.addAll(fullPlaylist)
         unseenSet.remove(startVideo)
+        // Reset sibling state on new playlist
+        siblingPlaylist = emptyList()
+        unseenSiblingSet.clear()
+    }
+
+    /**
+     * FEAT-018: sets the extended pool for PARENT_RANDOM mode.
+     * Called from PlayerViewModel after async sibling-directory scan completes.
+     */
+    fun setSiblingPlaylist(videos: List<VideoFile>) {
+        siblingPlaylist = videos
+        unseenSiblingSet.clear()
+        unseenSiblingSet.addAll(videos)
+        // Remove current video from unseen if present by URI match
+        val cur = history.getOrNull(currentIndex)
+        if (cur != null) unseenSiblingSet.removeIf { it.uri == cur.uri }
     }
 
     // -------------------------------------------------------------------------
@@ -178,8 +199,12 @@ class PlaybackHistory {
      *
      * CR-019: no longer rebuilds the unseen set from scratch on every call.
      */
-    private fun pickNext(): VideoFile =
-        if (playbackOrder == PlaybackOrder.ALPHABETICAL) pickSequential() else pickRandom()
+    private fun pickNext(): VideoFile = when (playbackOrder) {
+        PlaybackOrder.ALPHABETICAL  -> pickSequential()
+        PlaybackOrder.BY_DATE       -> pickByDate()
+        PlaybackOrder.PARENT_RANDOM -> pickFromSiblings()
+        else                        -> pickRandom()
+    }
 
     private fun pickSequential(): VideoFile {
         if (playlist.isEmpty()) return history[currentIndex]
@@ -191,6 +216,30 @@ class PlaybackHistory {
                 .takeIf { it >= 0 }
             ?: 0
         return playlist[(idx + 1) % playlist.size]
+    }
+
+    /** FEAT-018: picks next video in descending modification-date order (most recent first, cycling). */
+    private fun pickByDate(): VideoFile {
+        if (playlist.isEmpty()) return history[currentIndex]
+        val currentVideo = history.getOrNull(currentIndex) ?: return playlist.first()
+        val sortedByDate = playlist.sortedByDescending { it.lastModified }
+        val idx = sortedByDate.indexOfFirst { it === currentVideo }
+            .takeIf { it >= 0 }
+            ?: sortedByDate.indexOfFirst { it.uri == currentVideo.uri }
+                .takeIf { it >= 0 }
+            ?: 0
+        return sortedByDate[(idx + 1) % sortedByDate.size]
+    }
+
+    /** FEAT-018: picks randomly from the sibling-directory pool; falls back to RANDOM if empty. */
+    private fun pickFromSiblings(): VideoFile {
+        if (siblingPlaylist.isEmpty()) return pickRandom()
+        if (unseenSiblingSet.isEmpty()) {
+            val cur = history.getOrNull(currentIndex)
+            unseenSiblingSet.addAll(siblingPlaylist)
+            if (cur != null) unseenSiblingSet.removeIf { it.uri == cur.uri }
+        }
+        return unseenSiblingSet.randomOrNull() ?: siblingPlaylist.first()
     }
 
     private fun pickRandom(): VideoFile {

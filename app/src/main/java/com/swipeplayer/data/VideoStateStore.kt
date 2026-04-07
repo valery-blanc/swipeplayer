@@ -28,9 +28,19 @@ class VideoStateStore @Inject constructor(
         val positionMs: Long,
         val zoom: Float,
         val displayMode: DisplayMode,
+        val volume: Float = 1f,
+        val isMirrored: Boolean = false,
     )
 
-    fun save(filename: String, positionMs: Long, durationMs: Long, zoom: Float, displayMode: DisplayMode) {
+    fun save(
+        filename: String,
+        positionMs: Long,
+        durationMs: Long,
+        zoom: Float,
+        displayMode: DisplayMode,
+        volume: Float,
+        isMirrored: Boolean,
+    ) {
         val safePosition = when {
             positionMs < 5_000L                        -> 0L  // watched < 5s: restart
             durationMs > 0 && positionMs >= durationMs - 5_000L -> 0L  // near end: restart
@@ -41,8 +51,17 @@ class VideoStateStore @Inject constructor(
             .putLong("${filename}::pos", safePosition)
             .putFloat("${filename}::zoom", zoom)
             .putString("${filename}::fmt", displayMode.name)
+            .putFloat("${filename}::vol", volume)
+            .putInt("${filename}::mirror", if (isMirrored) 1 else 0)
             .apply()
     }
+
+    // FEAT-015: global brightness (not per-video)
+    fun saveBrightness(brightness: Float) {
+        prefs.edit().putFloat("global::brightness", brightness).apply()
+    }
+
+    fun loadBrightness(): Float = prefs.getFloat("global::brightness", -1f)
 
     fun savePlaybackOrder(order: PlaybackOrder) {
         prefs.edit().putString("global::playback_order", order.name).apply()
@@ -55,11 +74,14 @@ class VideoStateStore @Inject constructor(
 
     fun load(filename: String): VideoState? {
         if (!prefs.contains("${filename}::pos")) return null
-        val pos  = prefs.getLong("${filename}::pos", 0L)
-        val zoom = prefs.getFloat("${filename}::zoom", 1f)
-        val fmt  = prefs.getString("${filename}::fmt", DisplayMode.ADAPT.name)
+        val pos      = prefs.getLong("${filename}::pos", 0L)
+        val zoom     = prefs.getFloat("${filename}::zoom", 1f)
+        val fmt      = prefs.getString("${filename}::fmt", DisplayMode.ADAPT.name)
             ?.let { runCatching { DisplayMode.valueOf(it) }.getOrNull() }
             ?: DisplayMode.ADAPT
-        return VideoState(positionMs = pos, zoom = zoom, displayMode = fmt)
+        val volume     = prefs.getFloat("${filename}::vol", 1f)
+        val isMirrored = prefs.getInt("${filename}::mirror", 0) != 0
+        return VideoState(positionMs = pos, zoom = zoom, displayMode = fmt,
+            volume = volume, isMirrored = isMirrored)
     }
 }

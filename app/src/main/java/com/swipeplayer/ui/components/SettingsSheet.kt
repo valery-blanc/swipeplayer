@@ -121,6 +121,16 @@ fun SettingsSheet(
                 isSelected = playbackOrder == PlaybackOrder.ALPHABETICAL,
                 onClick = { onPlaybackOrderChange(PlaybackOrder.ALPHABETICAL) },
             )
+            TrackRow(
+                label = "Par date de modification",
+                isSelected = playbackOrder == PlaybackOrder.BY_DATE,
+                onClick = { onPlaybackOrderChange(PlaybackOrder.BY_DATE) },
+            )
+            TrackRow(
+                label = "Aleatoire (repertoire parent)",
+                isSelected = playbackOrder == PlaybackOrder.PARENT_RANDOM,
+                onClick = { onPlaybackOrderChange(PlaybackOrder.PARENT_RANDOM) },
+            )
 
             Spacer(Modifier.height(24.dp))
         }

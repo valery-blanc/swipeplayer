@@ -314,6 +314,7 @@ fun PlayerScreen(
             player = playerB,
             zoomScale = if (!aIsFront) { { uiState.zoomScale } } else { { 1f } },
             displayMode = uiState.displayMode,
+            isMirrored = if (!aIsFront) uiState.isMirrored else false,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -328,6 +329,7 @@ fun PlayerScreen(
             player = playerA,
             zoomScale = if (aIsFront) { { uiState.zoomScale } } else { { 1f } },
             displayMode = uiState.displayMode,
+            isMirrored = if (aIsFront) uiState.isMirrored else false,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {

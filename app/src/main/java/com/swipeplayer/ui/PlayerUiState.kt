@@ -102,9 +102,14 @@ data class PlayerUiState(
     val audioTracks: List<TrackInfo> = emptyList(),
     val subtitleTracks: List<TrackInfo> = emptyList(),
 
-    // --- Playback order (FEAT-013) -------------------------------------------
+    // --- Playback order (FEAT-013 / FEAT-018) --------------------------------
 
     val playbackOrder: PlaybackOrder = PlaybackOrder.RANDOM,
+
+    // --- Mirror (FEAT-017) ---------------------------------------------------
+
+    /** True when the video surface is flipped horizontally. Persisted per video. */
+    val isMirrored: Boolean = false,
 )
 
 // ---------------------------------------------------------------------------
@@ -159,6 +164,13 @@ enum class PlaybackOrder {
     RANDOM,
     /** Play videos in natural alphabetical order, cycling at the end. */
     ALPHABETICAL,
+    /** Play videos in ascending order of modification date, cycling at the end. */
+    BY_DATE,
+    /**
+     * Pick randomly from all videos in sibling directories (same parent directory),
+     * including hidden directories (names starting with "." or containing ".nomedia").
+     */
+    PARENT_RANDOM,
 }
 
 /** Playback errors surfaced to the UI as toasts or overlays. */

@@ -79,11 +79,12 @@ class VideoRepository @Inject constructor(
 
     // CR-020: shared helper — builds a VideoFile from a filesystem File
     private fun File.toVideoFile(): VideoFile = VideoFile(
-        uri      = Uri.fromFile(this),
-        name     = name,
-        path     = absolutePath,
-        duration = -1L,
-        size     = length(),
+        uri          = Uri.fromFile(this),
+        name         = name,
+        path         = absolutePath,
+        duration     = -1L,
+        size         = length(),
+        lastModified = lastModified(),
     )
 
     private suspend fun listViaFile(uri: Uri): List<VideoFile> =
@@ -162,6 +163,7 @@ class VideoRepository @Inject constructor(
         MediaStore.Video.Media.DATA,
         MediaStore.Video.Media.DURATION,
         MediaStore.Video.Media.SIZE,
+        MediaStore.Video.Media.DATE_MODIFIED,
     )
 
     private fun Cursor.toVideoFile(volumeUri: Uri): VideoFile? {
@@ -170,16 +172,20 @@ class VideoRepository @Inject constructor(
         val dataCol = getColumnIndex(MediaStore.Video.Media.DATA)
         val durCol  = getColumnIndex(MediaStore.Video.Media.DURATION)
         val sizeCol = getColumnIndex(MediaStore.Video.Media.SIZE)
+        val dateCol = getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED)
         if (nameCol < 0 || idCol < 0) return null
         val name = getString(nameCol) ?: return null
         if (name.substringAfterLast('.', "").lowercase() !in VIDEO_EXTENSIONS) return null
         val id = getLong(idCol)
+        // DATE_MODIFIED is in seconds; convert to ms
+        val lastModified = if (dateCol >= 0) getLong(dateCol) * 1000L else -1L
         return VideoFile(
-            uri      = ContentUris.withAppendedId(volumeUri, id),
-            name     = name,
-            path     = if (dataCol >= 0) getString(dataCol) ?: "" else "",
-            duration = if (durCol >= 0) getLong(durCol) else -1L,
-            size     = if (sizeCol >= 0) getLong(sizeCol) else 0L,
+            uri          = ContentUris.withAppendedId(volumeUri, id),
+            name         = name,
+            path         = if (dataCol >= 0) getString(dataCol) ?: "" else "",
+            duration     = if (durCol >= 0) getLong(durCol) else -1L,
+            size         = if (sizeCol >= 0) getLong(sizeCol) else 0L,
+            lastModified = lastModified,
         )
     }
 
@@ -491,6 +497,41 @@ class VideoRepository @Inject constructor(
 
     private fun naturalCompareStr(a: String, b: String) =
         com.swipeplayer.util.naturalCompare(a, b)
+
+    // -------------------------------------------------------------------------
+    // FEAT-018: Sibling directory listing for PARENT_RANDOM mode
+    // -------------------------------------------------------------------------
+
+    /**
+     * Lists all video files from the sibling directories of the directory that
+     * contains [sourceUri] (i.e. all subdirectories of the parent directory).
+     *
+     * Hidden directories (name starts with "." OR contains a ".nomedia" file) are
+     * intentionally INCLUDED — this is the defined behaviour for PARENT_RANDOM.
+     *
+     * Uses the filesystem path resolved from [sourceUri] (File API). Returns an
+     * empty list if the path cannot be resolved (SAF-only URIs without a path).
+     */
+    suspend fun listSiblingDirectoryVideos(sourceUri: Uri): List<VideoFile> =
+        withContext(Dispatchers.IO) {
+            val currentDirPath = resolveParentPath(sourceUri)
+                ?: return@withContext emptyList<VideoFile>()
+            val grandParent = File(currentDirPath).parentFile
+                ?: return@withContext emptyList<VideoFile>()
+            if (!grandParent.exists()) return@withContext emptyList<VideoFile>()
+
+            val result = mutableListOf<VideoFile>()
+            val siblingDirs = grandParent.listFiles()?.filter { it.isDirectory } ?: emptyList()
+            for (dir in siblingDirs) {
+                runCatching {
+                    dir.listFiles()
+                        ?.filter { it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS }
+                        ?.forEach { result += it.toVideoFile() }
+                }
+            }
+            Log.d(TAG, "listSiblingDirectoryVideos: found ${result.size} video(s) in ${siblingDirs.size} sibling dir(s)")
+            result.sortedNaturally()
+        }
 
     // -------------------------------------------------------------------------
     // External subtitle detection (CR-009 / BUG-018)

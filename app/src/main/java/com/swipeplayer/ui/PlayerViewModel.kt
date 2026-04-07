@@ -95,6 +95,12 @@ class PlayerViewModel @Inject constructor(
 
     private val history = PlaybackHistory()
 
+    /** FEAT-018: stored to enable lazy sibling-directory scan for PARENT_RANDOM. */
+    private var intentUri: android.net.Uri? = null
+
+    /** FEAT-018: job for async sibling scan; cancelled before each new scan. */
+    private var siblingLoadJob: Job? = null
+
     /** Current position-polling job; cancelled/restarted on play/pause. */
     private var positionPollingJob: Job? = null
 
@@ -146,6 +152,11 @@ class PlayerViewModel @Inject constructor(
         val savedOrder = videoStateStore.loadPlaybackOrder()
         history.playbackOrder = savedOrder
         _uiState.update { it.copy(playbackOrder = savedOrder) }
+        // FEAT-015: restore global brightness
+        val savedBrightness = videoStateStore.loadBrightness()
+        if (savedBrightness >= 0f) {
+            _uiState.update { it.copy(brightness = savedBrightness) }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -157,6 +168,7 @@ class PlayerViewModel @Inject constructor(
      * Loads the playlist and starts playing the video at [uri].
      */
     fun onIntentReceived(uri: Uri) {
+        intentUri = uri
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -188,6 +200,10 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 startPlayback(startVideo)
+                // FEAT-018: if PARENT_RANDOM was already selected, load siblings now
+                if (_uiState.value.playbackOrder == PlaybackOrder.PARENT_RANDOM) {
+                    loadSiblingPlaylist()
+                }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -301,10 +317,43 @@ class PlayerViewModel @Inject constructor(
 
     fun onPlaybackOrderChange(order: PlaybackOrder) {
         history.playbackOrder = order
-        // Invalidate the current peek so the next preload uses the new order
-        viewModelScope.launch { triggerPeekNext() }
         _uiState.update { it.copy(playbackOrder = order) }
         videoStateStore.savePlaybackOrder(order)
+        // FEAT-018: load sibling videos if switching to PARENT_RANDOM
+        if (order == PlaybackOrder.PARENT_RANDOM) {
+            loadSiblingPlaylist()
+        }
+        // Invalidate the current peek so the next preload uses the new order
+        viewModelScope.launch { triggerPeekNext() }
+    }
+
+    /** FEAT-018: async scan of sibling directories for PARENT_RANDOM mode. */
+    private fun loadSiblingPlaylist() {
+        val uri = intentUri ?: return
+        siblingLoadJob?.cancel()
+        siblingLoadJob = viewModelScope.launch {
+            val siblings = videoRepository.listSiblingDirectoryVideos(uri)
+            history.setSiblingPlaylist(siblings)
+            // Re-trigger peek with the new pool
+            triggerPeekNext()
+        }
+    }
+
+    fun onMirrorToggle() {
+        val newMirrored = !_uiState.value.isMirrored
+        _uiState.update { it.copy(isMirrored = newMirrored) }
+        // Save immediately so it persists even if the user swipes without pausing
+        val video = history.current ?: return
+        val state = _uiState.value
+        videoStateStore.save(
+            filename    = video.name,
+            positionMs  = state.positionMs,
+            durationMs  = state.durationMs,
+            zoom        = state.zoomScale,
+            displayMode = state.displayMode,
+            volume      = state.volume,
+            isMirrored  = newMirrored,
+        )
     }
 
     // -------------------------------------------------------------------------
@@ -350,13 +399,17 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onBrightnessChange(brightness: Float) {
-        _uiState.update { it.copy(brightness = brightness.coerceIn(0f, 1f)) }
+        val clamped = brightness.coerceIn(0f, 1f)
+        _uiState.update { it.copy(brightness = clamped) }
+        videoStateStore.saveBrightness(clamped)
     }
 
     /** Incremental brightness update from gesture (positive = drag up = brighter). */
     fun onBrightnessDelta(delta: Float) {
         val cur = _uiState.value.brightness.let { if (it < 0f) 0.5f else it }
-        _uiState.update { it.copy(brightness = (cur + delta).coerceIn(0f, 1f), showBrightnessBar = true) }
+        val newBrightness = (cur + delta).coerceIn(0f, 1f)
+        _uiState.update { it.copy(brightness = newBrightness, showBrightnessBar = true) }
+        videoStateStore.saveBrightness(newBrightness)
         hideBrightnessBarJob?.cancel()
         hideBrightnessBarJob = viewModelScope.launch {
             delay(1_500L)
@@ -365,7 +418,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onVolumeChange(volume: Float) {
-        val clamped = volume.coerceIn(0f, 1f)
+        // FEAT-016: extended range 0–150%
+        val clamped = volume.coerceIn(0f, 1.5f)
         playerManager.currentPlayer?.volume = clamped
         _uiState.update { it.copy(volume = clamped) }
     }
@@ -373,7 +427,8 @@ class PlayerViewModel @Inject constructor(
     /** Incremental volume update from gesture (positive = drag up = louder). */
     fun onVolumeDelta(delta: Float) {
         val cur = _uiState.value.volume
-        val newVolume = (cur + delta).coerceIn(0f, 1f)
+        // FEAT-016: extended range 0–150%
+        val newVolume = (cur + delta).coerceIn(0f, 1.5f)
         playerManager.currentPlayer?.volume = newVolume
         _uiState.update { it.copy(volume = newVolume, showVolumeBar = true) }
         hideVolumeBarJob?.cancel()
@@ -540,12 +595,24 @@ class PlayerViewModel @Inject constructor(
         // CR-010: generation counter — abort if a newer startPlayback() has started
         val token = ++playbackStartToken
 
-        // Load persisted state before starting (zoom + displayMode + position).
+        // Load persisted state before starting (zoom + displayMode + position + volume + mirror).
         val saved = videoStateStore.load(video.name)
         if (saved != null) {
-            _uiState.update { it.copy(zoomScale = saved.zoom, displayMode = saved.displayMode) }
+            _uiState.update {
+                it.copy(
+                    zoomScale   = saved.zoom,
+                    displayMode = saved.displayMode,
+                    volume      = saved.volume,
+                    isMirrored  = saved.isMirrored,
+                )
+            }
+            playerManager.currentPlayer?.volume = saved.volume
         } else {
-            _uiState.update { it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT) }
+            _uiState.update {
+                it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT,
+                    volume = 1f, isMirrored = false)
+            }
+            playerManager.currentPlayer?.volume = 1f
         }
 
         // BUG-022: pre-seek the preloaded next player BEFORE swapping so that
@@ -607,6 +674,8 @@ class PlayerViewModel @Inject constructor(
             durationMs  = state.durationMs,
             zoom        = state.zoomScale,
             displayMode = state.displayMode,
+            volume      = state.volume,
+            isMirrored  = state.isMirrored,
         )
     }
 
@@ -819,6 +888,7 @@ class PlayerViewModel @Inject constructor(
         clearDoubleTapJob?.cancel()
         peekJob?.cancel()
         peekPrevJob?.cancel()
+        siblingLoadJob?.cancel()
         audioFocusManager.listener = null
         // CRO-005: releaseAll() nullifies all callbacks and releases players.
         // runBlocking(Dispatchers.Main.immediate) executes synchronously since

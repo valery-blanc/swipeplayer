@@ -1,6 +1,6 @@
 package com.swipeplayer.ui.components
 
-import android.view.SurfaceView
+import android.view.TextureView
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
@@ -22,21 +22,25 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.swipeplayer.ui.DisplayMode
 
 /**
- * Renders video from [player] onto a [SurfaceView] wrapped in AndroidView.
+ * Renders video from [player] onto a [TextureView] wrapped in AndroidView.
  *
- * [zoomScale] is applied via graphicsLayer on the surface only — controls
+ * TextureView is used instead of SurfaceView because it renders into the app's
+ * OpenGL texture pipeline, which means graphicsLayer transforms (zoom) and
+ * View transforms (mirror via scaleX) both apply correctly.
+ * SurfaceView renders to a separate SurfaceFlinger buffer that ignores all
+ * View/RenderNode transforms — making mirror impossible without OpenGL shaders.
+ *
+ * [zoomScale] is applied via graphicsLayer on the container — controls
  * overlaid on top are unaffected by the zoom.
  *
- * [displayMode] controls how the video is scaled relative to the container:
- *   ADAPT      — fit inside with letterbox/pillarbox (black bars, no cropping)
- *   FILL       — fill the container, preserving ratio, cropping excess
- *   STRETCH    — fill the container ignoring the video's aspect ratio
- *   NATIVE_100 — render at native pixel size (1 video pixel = 1 screen pixel)
+ * [isMirrored] flips the video horizontally via TextureView.scaleX = -1f.
+ *
+ * [displayMode] controls how the video is scaled relative to the container.
  *
  * The video size is tracked locally via [Player.Listener.onVideoSizeChanged],
  * so no extra state needs to be stored in the ViewModel.
  *
- * Safe when [player] is null: the SurfaceView is still created but nothing
+ * Safe when [player] is null: the TextureView is still created but nothing
  * is attached to it (black surface, no crash).
  */
 @Composable
@@ -45,6 +49,7 @@ fun VideoSurface(
     // CRO-004: lambda avoids recomposition on every pinch frame
     zoomScale: () -> Float,
     displayMode: DisplayMode,
+    isMirrored: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     // We keep the last known non-zero dimensions across player changes so there
@@ -147,25 +152,28 @@ fun VideoSurface(
         }
 
         // CR-014: track the previously attached player to avoid calling
-        // setVideoSurfaceView on every recomposition (would cause a flash).
-        // The factory captures the initial player; update only re-attaches
-        // when the player instance actually changes.
-        var attachedPlayer by remember { mutableStateOf<androidx.media3.exoplayer.ExoPlayer?>(null) }
+        // setVideoTextureView on every recomposition (would cause a flash).
+        var attachedPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
 
         androidx.compose.ui.viewinterop.AndroidView(
             factory = { ctx ->
-                SurfaceView(ctx).also { sv ->
-                    player?.setVideoSurfaceView(sv)
+                TextureView(ctx).also { tv ->
+                    // FEAT-017: TextureView.scaleX = -1f mirrors the video horizontally.
+                    // Unlike SurfaceView, TextureView renders through the app's RenderNode
+                    // so View transforms apply correctly to the actual video content.
+                    tv.scaleX = if (isMirrored) -1f else 1f
+                    player?.setVideoTextureView(tv)
                     attachedPlayer = player
                 }
             },
-            update = { sv ->
+            update = { tv ->
                 if (player !== attachedPlayer) {
                     // Detach from old player before attaching to new one
-                    attachedPlayer?.clearVideoSurfaceView(sv)
-                    player?.setVideoSurfaceView(sv)
+                    attachedPlayer?.clearVideoTextureView(tv)
+                    player?.setVideoTextureView(tv)
                     attachedPlayer = player
                 }
+                tv.scaleX = if (isMirrored) -1f else 1f
             },
             modifier = surfaceModifier,
         )
