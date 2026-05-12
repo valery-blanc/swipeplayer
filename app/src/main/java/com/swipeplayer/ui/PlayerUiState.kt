@@ -54,6 +54,9 @@ data class PlayerUiState(
     /** Whether the controls overlay (top bar, center controls, progress) is visible. */
     val controlsVisible: Boolean = true,
 
+    /** FEAT-019: when true, a semi-transparent black overlay dims the video while controls are visible. */
+    val dimVideoOnControls: Boolean = true,
+
     // --- Zoom ----------------------------------------------------------------
 
     /** Current zoom scale applied via graphicsLayer on the video surface. */

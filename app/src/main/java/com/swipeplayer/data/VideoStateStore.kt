@@ -63,6 +63,13 @@ class VideoStateStore @Inject constructor(
 
     fun loadBrightness(): Float = prefs.getFloat("global::brightness", -1f)
 
+    // FEAT-019: global dim-on-controls preference
+    fun saveDimVideoOnControls(dim: Boolean) {
+        prefs.edit().putBoolean("global::dim_video_on_controls", dim).apply()
+    }
+
+    fun loadDimVideoOnControls(): Boolean = prefs.getBoolean("global::dim_video_on_controls", true)
+
     fun savePlaybackOrder(order: PlaybackOrder) {
         prefs.edit().putString("global::playback_order", order.name).apply()
     }

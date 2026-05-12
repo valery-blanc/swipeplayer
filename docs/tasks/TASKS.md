@@ -752,8 +752,8 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 - [x] GestureHandler.kt — onVideoDragUpdate + onVideoDragCancel + nouveau seuil commit
 - [x] PlayerScreen.kt — remplacer VerticalPager par Animatable + dual VideoSurface
 - [x] Deploy : ./gradlew installDebug
-- [ ] Test utilisateur + confirmation
-- [ ] Commit : FEAT-009
+- [x] Test utilisateur + confirmation
+- [x] Commit : FEAT-009
 
 ---
 
@@ -824,7 +824,7 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 - [x] ui/home/HomeViewModel.kt — +loadStorageVolumes(), +onVolumeSelected(), +onToggleHiddenFiles()
 - [x] ui/home/screen/FileBrowserScreen.kt — header avec volume picker + toggle fichiers cachés
 - [x] ui/home/screen/HomeScreen.kt — passer nouveaux params
-- [ ] Deploy + test + commit
+- [x] Deploy + test + commit
 
 ---
 
@@ -834,9 +834,9 @@ Configuration ExoPlayer, gestion audio focus, cycle de vie des instances.
 - [x] PlayerViewModel.kt — ajouter `autoSwipeUpEvent: SharedFlow<Unit>`, émettre dans `onVideoEnded()` au lieu d'appeler `onSwipeUp()` directement
 - [x] PlayerScreen.kt — extraire `doSwipeUpAnimation()` suspend locale, `LaunchedEffect(Unit)` qui collecte `autoSwipeUpEvent` et l'appelle ; `onSwipeUp` gesture réutilise la même fonction
 - [x] swipeplayer-specs.md — ajouter §15.16, incrémenter version BUG-027
-- [ ] Deploy : ./gradlew installDebug
-- [ ] Test + confirmation utilisateur
-- [ ] Commit : FIX BUG-027
+- [x] Deploy : ./gradlew installDebug
+- [x] Test + confirmation utilisateur
+- [x] Commit : FIX BUG-027
 
 ---
 
@@ -942,6 +942,28 @@ Session 2026-03-12. Revue independante par Opus 4.6 — 21 corrections a appliqu
 ---
 
 ## FEAT-015 à FEAT-018 — Features temp.txt (2026-04-07)
+
+### FEAT-020 — Volume max étendu à 200% du son système
+
+- [x] Spec : docs/specs/FEAT-020-volume-range-200pct.md
+- [x] `PlayerViewModel.kt` — LoudnessEnhancer + applyVolume() + coerceIn 2.0f
+- [x] `VolumeControl.kt` — normalisation / 2.0f
+- [x] Deploy + test + commit
+
+---
+
+### FEAT-019 — Paramètre d'assombrissement vidéo lors des contrôles
+
+- [x] Spec : docs/specs/FEAT-019-dim-video-on-controls.md
+- [x] `PlayerUiState.kt` — ajout `dimVideoOnControls: Boolean = true`
+- [x] `VideoStateStore.kt` — `saveDimVideoOnControls` / `loadDimVideoOnControls`
+- [x] `PlayerViewModel.kt` — chargement init + `onDimVideoOnControlsChange()`
+- [x] `ControlsOverlay.kt` — fond conditionnel
+- [x] `SettingsSheet.kt` — section toggle Switch
+- [x] `PlayerScreen.kt` — wiring
+- [x] Deploy + test + commit
+
+---
 
 ### FEAT-015 — Luminosité persistante (globale)
 

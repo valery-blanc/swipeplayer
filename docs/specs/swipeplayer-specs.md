@@ -318,7 +318,7 @@ restauré à l'ouverture de chaque vidéo.
 | Bouton | Fonction | Comportement |
 |---|---|---|
 | `[1x]` | Vitesse | `DropdownMenu` : 0.25x, 0.33x, 0.5x, 0.75x, 1x, 1.5x, 2x, 3x, 4x (FEAT-007) |
-| `[⚙]` | Réglages | `ModalBottomSheet` : piste audio, sous-titres, ordre de lecture, info décodeur |
+| `[⚙]` | Réglages | `ModalBottomSheet` : piste audio, sous-titres, ordre de lecture, affichage, info décodeur |
 | `[⛶]` | Format | `DropdownMenu` avec 7 modes (voir §6.7) |
 | `[↔]` | Miroir | Bascule le miroir horizontal (FEAT-017). Icône `Flip` retournée quand actif. Persistant par vidéo. |
 | `[rot]` | Orientation | Cycle : Auto → Paysage → Portrait |
@@ -676,6 +676,18 @@ automatiquement les stratégies SAF → MediaStore → mode fichier unique.
     et exécute `doSwipeUpAnimation()` — exactement la même animation ping-pong que le geste
     manuel. La vidéo terminée monte, la vidéo suivante arrive par le bas. Le mode single-file
     reste géré directement dans le ViewModel (seekTo(0) + play()).
+
+18. **Volume max étendu** (FEAT-020) :
+    - Plage ExoPlayer : 0–2.0f (200% du son système)
+    - Barre visuelle : 50% = 100% système, 100% = 200% système (normalisation `volume / 2.0f`)
+    - Sensibilité geste : ×3 inchangée (1/3 d'écran = +100% système)
+    - Valeur par défaut : 1.0f → bar à 50%
+
+17. **Assombrissement de la vidéo lors des contrôles** (FEAT-019) :
+    Toggle dans `SettingsSheet` → section "Affichage".
+    - Activé (défaut) : fond `#80000000` sur l'overlay → la vidéo est assombrie
+    - Désactivé : fond transparent → les contrôles s'affichent sans assombrir la vidéo
+    Persisté globalement dans `VideoStateStore` (clé `"global::dim_video_on_controls"`).
 
 15. **Explorateur de fichiers** (FEAT-014) : l'onglet "Parcourir" de `HomeActivity` utilise
     `browseDirectory(dir, showHiddenFiles)` de `VideoRepository`.

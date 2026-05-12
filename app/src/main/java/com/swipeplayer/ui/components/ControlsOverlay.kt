@@ -58,7 +58,7 @@ fun ControlsOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0x80000000)),
+            .background(if (uiState.dimVideoOnControls) Color(0x80000000) else Color.Transparent),
     ) {
         // Top bar
         TopBar(

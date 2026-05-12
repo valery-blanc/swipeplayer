@@ -1,5 +1,6 @@
 package com.swipeplayer.ui
 
+import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.util.Log
 import android.view.SurfaceView
@@ -30,6 +31,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.log10
+import kotlin.math.roundToInt
 import javax.inject.Inject
 
 /**
@@ -157,6 +160,8 @@ class PlayerViewModel @Inject constructor(
         if (savedBrightness >= 0f) {
             _uiState.update { it.copy(brightness = savedBrightness) }
         }
+        // FEAT-019: restore dim-on-controls preference
+        _uiState.update { it.copy(dimVideoOnControls = videoStateStore.loadDimVideoOnControls()) }
     }
 
     // -------------------------------------------------------------------------
@@ -339,6 +344,12 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** FEAT-019: toggle dim-on-controls preference; persisted globally. */
+    fun onDimVideoOnControlsChange(dim: Boolean) {
+        videoStateStore.saveDimVideoOnControls(dim)
+        _uiState.update { it.copy(dimVideoOnControls = dim) }
+    }
+
     fun onMirrorToggle() {
         val newMirrored = !_uiState.value.isMirrored
         _uiState.update { it.copy(isMirrored = newMirrored) }
@@ -418,18 +429,16 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onVolumeChange(volume: Float) {
-        // FEAT-016: extended range 0–150%
-        val clamped = volume.coerceIn(0f, 1.5f)
-        playerManager.currentPlayer?.volume = clamped
+        val clamped = volume.coerceIn(0f, 2.0f)
+        applyVolume(clamped)
         _uiState.update { it.copy(volume = clamped) }
     }
 
     /** Incremental volume update from gesture (positive = drag up = louder). */
     fun onVolumeDelta(delta: Float) {
         val cur = _uiState.value.volume
-        // FEAT-016: extended range 0–150%
-        val newVolume = (cur + delta).coerceIn(0f, 1.5f)
-        playerManager.currentPlayer?.volume = newVolume
+        val newVolume = (cur + delta).coerceIn(0f, 2.0f)
+        applyVolume(newVolume)
         _uiState.update { it.copy(volume = newVolume, showVolumeBar = true) }
         hideVolumeBarJob?.cancel()
         hideVolumeBarJob = viewModelScope.launch {
@@ -541,15 +550,42 @@ class PlayerViewModel @Inject constructor(
     /** CRO-014: volume before ducking; restored on unduck to preserve user preference. */
     private var preDuckVolume = 1.0f
 
+    /**
+     * FEAT-020: LoudnessEnhancer for amplification above 1.0f (>100% system volume).
+     * AudioTrack.getMaxVolume() = 1.0f on Android — setVolume() is clamped there.
+     * We keep player.volume = min(vol, 1.0f) and add dB gain via the enhancer.
+     */
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var loudnessSessionId: Int = 0  // C.AUDIO_SESSION_ID_UNSET
+
+    private fun applyVolume(volume: Float) {
+        val player = playerManager.currentPlayer ?: return
+        player.volume = volume.coerceIn(0f, 1f)
+        val sessionId = player.audioSessionId
+        if (sessionId == 0) return
+        if (loudnessSessionId != sessionId) {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = try { LoudnessEnhancer(sessionId) } catch (e: RuntimeException) { return }
+            loudnessSessionId = sessionId
+        }
+        if (volume > 1f) {
+            val gainMb = (20f * log10(volume) * 100f).roundToInt()
+            loudnessEnhancer?.setTargetGain(gainMb)
+            loudnessEnhancer?.enabled = true
+        } else {
+            loudnessEnhancer?.enabled = false
+        }
+    }
+
     override fun onDuck() {
         // CRO-014: save current volume so unduck can restore it
         preDuckVolume = _uiState.value.volume
-        playerManager.currentPlayer?.volume = 0.3f
+        applyVolume(0.3f)  // disables LoudnessEnhancer while ducked
     }
 
     override fun onUnduck() {
         // CRO-014: restore user's volume instead of hardcoding 1.0f
-        playerManager.currentPlayer?.volume = preDuckVolume
+        applyVolume(preDuckVolume)  // re-enables LoudnessEnhancer if preDuckVolume > 1f
         _uiState.update { it.copy(volume = preDuckVolume) }
     }
 
@@ -606,13 +642,13 @@ class PlayerViewModel @Inject constructor(
                     isMirrored  = saved.isMirrored,
                 )
             }
-            playerManager.currentPlayer?.volume = saved.volume
+            applyVolume(saved.volume)
         } else {
             _uiState.update {
                 it.copy(zoomScale = 1f, displayMode = DisplayMode.ADAPT,
                     volume = 1f, isMirrored = false)
             }
-            playerManager.currentPlayer?.volume = 1f
+            applyVolume(1f)
         }
 
         // BUG-022: pre-seek the preloaded next player BEFORE swapping so that
@@ -890,6 +926,8 @@ class PlayerViewModel @Inject constructor(
         peekPrevJob?.cancel()
         siblingLoadJob?.cancel()
         audioFocusManager.listener = null
+        loudnessEnhancer?.release()
+        loudnessEnhancer = null
         // CRO-005: releaseAll() nullifies all callbacks and releases players.
         // runBlocking(Dispatchers.Main.immediate) executes synchronously since
         // onCleared() is always called on the main thread — no deadlock possible.

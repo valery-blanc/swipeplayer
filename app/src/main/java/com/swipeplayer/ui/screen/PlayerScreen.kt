@@ -389,9 +389,11 @@ fun PlayerScreen(
                 audioTracks = uiState.audioTracks,
                 subtitleTracks = uiState.subtitleTracks,
                 playbackOrder = uiState.playbackOrder,
+                dimVideoOnControls = uiState.dimVideoOnControls,
                 onAudioTrackSelected = viewModel::onAudioTrackSelected,
                 onSubtitleTrackSelected = viewModel::onSubtitleTrackSelected,
                 onPlaybackOrderChange = viewModel::onPlaybackOrderChange,
+                onDimVideoOnControlsChange = viewModel::onDimVideoOnControlsChange,
                 onDismiss = { showSettingsSheet = false },
             )
         }

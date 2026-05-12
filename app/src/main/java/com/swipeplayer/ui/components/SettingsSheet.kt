@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -31,9 +32,11 @@ fun SettingsSheet(
     audioTracks: List<TrackInfo>,
     subtitleTracks: List<TrackInfo>,
     playbackOrder: PlaybackOrder,
+    dimVideoOnControls: Boolean,
     onAudioTrackSelected: (TrackInfo) -> Unit,
     onSubtitleTrackSelected: (TrackInfo?) -> Unit,
     onPlaybackOrderChange: (PlaybackOrder) -> Unit,
+    onDimVideoOnControlsChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -131,6 +134,30 @@ fun SettingsSheet(
                 isSelected = playbackOrder == PlaybackOrder.PARENT_RANDOM,
                 onClick = { onPlaybackOrderChange(PlaybackOrder.PARENT_RANDOM) },
             )
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+
+            // --- Display options ---
+            Text("Affichage", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Assombrir la video lors des controles",
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = dimVideoOnControls,
+                    onCheckedChange = onDimVideoOnControlsChange,
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
         }
